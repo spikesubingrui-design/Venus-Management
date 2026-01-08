@@ -1,0 +1,40 @@
+{
+  "name": "kidda-education-system",
+  "private": false,
+  "version": "1.0.0",
+  "description": "金星教育集团幼儿园智慧管理系统 - Kidda Education Cloud Platform",
+  "author": "Kidda Education Group",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "deploy:vercel": "vercel --prod",
+    "deploy:netlify": "netlify deploy --prod --dir=dist"
+  },
+  "dependencies": {
+    "@google/genai": "^1.34.0",
+    "@supabase/supabase-js": "^2.39.7",
+    "ali-oss": "^6.23.0",
+    "lucide-react": "^0.562.0",
+    "qrcode.react": "^4.2.0",
+    "react": "^19.2.3",
+    "react-dom": "^19.2.3",
+    "recharts": "^3.6.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "^5.1.2",
+    "autoprefixer": "^10.4.17",
+    "postcss": "^8.4.35",
+    "tailwindcss": "^3.4.1",
+    "typescript": "^5.3.3",
+    "vite": "^5.1.4",
+    "xlsx": "^0.18.5"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

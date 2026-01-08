@@ -1,0 +1,7 @@
+{
+  "name": "Copy of 金星教育系统 (Cloud Edition)",
+  "description": "齐德教育旗下的全方位幼儿园云端管理平台，支持 200+ 幼儿档案管理、教职工云同步、AI 食谱与家园共育。",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}

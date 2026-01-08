@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>金星教育系统 · 决策者交互指南</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Chosen Palette: Slate & Indigo - Professional, trustworthy, clean administrative look. Warm neutrals for background. -->
+    <!-- Application Structure Plan: Dashboard-style layout mimicking the actual software interface described. 
+         Tabs represent the Modes (Morning, Finance, Safety, Team, Logistics) to guide the user through their daily/monthly workflow. 
+         The interactions simulate the decision-making process (e.g., approving refunds, spotting anomalies) to reinforce the guide's teachings. -->
+    <!-- Visualization & Content Choices: 
+         1. Attendance (Donut): Visualize the 90% threshold rule. Interaction: Toggle 'Low Attendance' to see alerts.
+         2. Finance (Bar): Compare Revenue vs Cost. Interaction: 'Refund Audit' simulation card (text-based logic) to teach risk control.
+         3. Safety (Line): Maintenance costs over time. Interaction: Highlight spikes to teach asset replacement decisions.
+         4. Team (Radar): Compare teacher performance metrics. Interaction: Select teachers to see strengths/weaknesses.
+         5. Logistics (Bar): Material consumption comparison. Interaction: Spot anomalies between classes.
+         CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <style>
+        body { font-family: 'Segoe UI', 'Roboto', 'Helvetica Neue', sans-serif; background-color: #f8fafc; }
+        .chart-container { 
+            position: relative; 
+            width: 100%; 
+            max-width: 600px; 
+            margin: 0 auto; 
+            height: 300px; 
+            max-height: 400px;
+        }
+        .tab-active { border-bottom: 2px solid #4f46e5; color: #4f46e5; font-weight: 600; }
+        .tab-inactive { color: #64748b; }
+        .tab-inactive:hover { color: #334155; }
+        .card { background: white; border-radius: 0.75rem; box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06); transition: all 0.3s ease; }
+        .card:hover { box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); }
+        .interactive-area { border: 2px dashed #e2e8f0; border-radius: 0.5rem; padding: 1rem; background-color: #f1f5f9; }
+        .alert-box { animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .7; } }
+    </style>
+</head>
+<body class="text-slate-800">
+
+    <!-- Header -->
+    <header class="bg-white shadow-sm sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center gap-2">
+                <span class="text-2xl">👑</span>
+                <h1 class="text-xl font-bold text-slate-900 tracking-tight">金星教育系统 <span class="text-indigo-600">决策者指南</span></h1>
+            </div>
+            <div class="text-sm text-slate-500 hidden md:block">
+                适用角色：投资人、董事长、总园长
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Navigation -->
+    <nav class="bg-white border-b border-slate-200 mt-1">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex space-x-8 overflow-x-auto" id="nav-tabs">
+                <!-- Populated by JS -->
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        
+        <!-- Intro Section -->
+        <div id="intro-section" class="mb-8">
+            <div class="bg-indigo-50 border-l-4 border-indigo-500 p-4 rounded-r-md">
+                <div class="flex">
+                    <div class="flex-shrink-0">
+                        <span class="text-2xl">👋</span>
+                    </div>
+                    <div class="ml-3">
+                        <h3 class="text-lg leading-6 font-medium text-indigo-900">欢迎进入决策驾驶舱</h3>
+                        <div class="mt-2 text-sm text-indigo-700">
+                            <p>本指南旨在帮助您通过数据掌控全局。请点击上方导航栏的不同"模式"，模拟您作为决策者的日常工作流程。</p>
+                            <ul class="list-disc pl-5 mt-2 space-y-1">
+                                <li><strong>早安模式：</strong> 每日 9:30 的例行检查。</li>
+                                <li><strong>财务管控：</strong> 审核每一笔资金流向。</li>
+                                <li><strong>安全与内控：</strong> 发现隐患，控制成本。</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Dynamic Content Container -->
+        <div id="content-area"></div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-slate-50 border-t border-slate-200 mt-12 py-8">
+        <div class="max-w-7xl mx-auto px-4 text-center text-slate-500 text-sm">
+            <p>金星教育系统 · 让管理更轻松</p>
+            <p class="mt-2">模拟演示数据仅供参考</p>
+        </div>
+    </footer>
+
+    <script>
+        // --- Data Store ---
+        const appData = {
+            currentTab: 'morning',
+            tabs: [
+                { id: 'morning', label: '☀️ 早安模式', icon: '' },
+                { id: 'finance', label: '💰 财务管控', icon: '' },
+                { id: 'safety', label: '🛡️ 安全巡查', icon: '' },
+                { id: 'team', label: '👩‍🏫 队伍建设', icon: '' },
+                { id: 'logistics', label: '📉 后勤内控', icon: '' },
+                { id: 'faq', label: '❓ 常见问题', icon: '' }
+            ],
+            morning: {
+                attendance: { normal: 95, abnormal: 88 },
+                health: [
+                    { label: '发热', count: 1, color: '#ef4444' },
+                    { label: '手足口', count: 0, color: '#f59e0b' },
+                    { label: '外伤', count: 0, color: '#3b82f6' }
+                ]
+            },
+            team: {
+                teachers: [
+                    { name: '李老师', observation: 85, response: 90, attendance: 98 },
+                    { name: '王老师', observation: 60, response: 75, attendance: 92 }
+                ]
+            }
+        };
+
+        // --- Chart Instances ---
+        let charts = {};
+
+        // --- Core Functions ---
+
+        function init() {
+            renderTabs();
+            renderContent('morning');
+        }
+
+        function renderTabs() {
+            const navContainer = document.getElementById('nav-tabs');
+            navContainer.innerHTML = appData.tabs.map(tab => `
+                <button 
+                    onclick="switchTab('${tab.id}')"
+                    class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors duration-200 ${appData.currentTab === tab.id ? 'tab-active' : 'tab-inactive border-transparent hover:border-slate-300'}"
+                >
+                    ${tab.label}
+                </button>
+            `).join('');
+        }
+
+        function switchTab(tabId) {
+            appData.currentTab = tabId;
+            renderTabs();
+            renderContent(tabId);
+        }
+
+        function renderContent(tabId) {
+            const container = document.getElementById('content-area');
+            container.innerHTML = ''; // Clear previous content
+
+            // Clear old charts to prevent memory leaks
+            Object.values(charts).forEach(chart => chart.destroy());
+            charts = {};
+
+            switch (tabId) {
+                case 'morning':
+                    renderMorningMode(container);
+                    break;
+                case 'finance':
+                    renderFinanceMode(container);
+                    break;
+                case 'safety':
+                    renderSafetyMode(container);
+                    break;
+                case 'team':
+                    renderTeamMode(container);
+                    break;
+                case 'logistics':
+                    renderLogisticsMode(container);
+                    break;
+                case 'faq':
+                    renderFAQ(container);
+                    break;
+            }
+        }
+
+        // --- Section Renderers ---
+
+        function renderMorningMode(container) {
+            container.innerHTML = `
+                <div class="space-y-6 animate-fade-in">
+                    <div class="mb-6">
+                        <h2 class="text-2xl font-bold text-slate-900">早安模式：今日运营概览</h2>
+                        <p class="text-slate-600 mt-2">场景：每天上午 9:30。无需巡班，一屏掌握出勤与健康风险。</p>
+                    </div>
+
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <!-- Attendance Card -->
+                        <div class="card p-6">
+                            <div class="flex justify-between items-center mb-4">
+                                <h3 class="text-lg font-semibold text-slate-800">1.1 考勤概览 (入园率)</h3>
+                                <button onclick="toggleAttendanceData()" class="px-3 py-1 text-sm bg-indigo-100 text-indigo-700 rounded hover:bg-indigo-200 transition">
+                                    模拟异常数据
+                                </button>
+                            </div>
+                            <div class="chart-container">
+                                <canvas id="attendanceChart"></canvas>
+                            </div>
+                            <div id="attendance-alert" class="mt-4 p-3 bg-red-50 text-red-700 rounded-md hidden">
+                                ⚠️ <strong>预警：</strong> 今日出勤率低于 90%。<br>
+                                <span class="text-sm">建议点击查看请假详情：是传染病集中爆发，还是天气影响？</span>
+                            </div>
+                            <div class="mt-4 text-sm text-slate-500 bg-slate-50 p-3 rounded">
+                                💡 <strong>决策点：</strong> 关注"病假"vs"事假"比例，提前预防退费风险。
+                            </div>
+                        </div>
+
+                        <!-- Health Card -->
+                        <div class="card p-6">
+                            <h3 class="text-lg font-semibold text-slate-800 mb-4">1.2 晨检异常监控</h3>
+                            <div class="grid grid-cols-2 gap-4 mb-4">
+                                <div class="bg-red-50 p-4 rounded-lg text-center border border-red-100">
+                                    <div class="text-3xl font-bold text-red-600">1</div>
+                                    <div class="text-sm text-red-800">发热 (未离园)</div>
+                                </div>
+                                <div class="bg-green-50 p-4 rounded-lg text-center border border-green-100">
+                                    <div class="text-3xl font-bold text-green-600">All</div>
+                                    <div class="text-sm text-green-800">其他指标正常</div>
+                                </div>
+                            </div>
+                            <div class="space-y-3">
+                                <div class="flex items-center justify-between p-3 bg-slate-50 rounded">
+                                    <span class="text-sm font-medium">大一班 - 张xx</span>
+                                    <span class="px-2 py-1 text-xs font-bold text-red-600 bg-red-100 rounded">发热 38.2℃</span>
+                                </div>
+                                <p class="text-xs text-slate-500 mt-2">系统追踪：该异常尚未标记为"已处理"，请通知保健医跟进。</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            initAttendanceChart(95); // Default normal
+        }
+
+        function renderFinanceMode(container) {
+            container.innerHTML = `
+                <div class="space-y-6 animate-fade-in">
+                    <div class="mb-6">
+                        <h2 class="text-2xl font-bold text-slate-900">财务管控：资金流向透明化</h2>
+                        <p class="text-slate-600 mt-2">场景：月底审批与日常查账。防范财务漏洞，杜绝私收乱退。</p>
+                    </div>
+
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <!-- Income Analysis -->
+                        <div class="card p-6">
+                            <h3 class="text-lg font-semibold text-slate-800 mb-4">2.3 经营损益 (本月)</h3>
+                            <div class="chart-container">
+                                <canvas id="financeChart"></canvas>
+                            </div>
+                             <div class="mt-4 text-sm text-slate-500 bg-slate-50 p-3 rounded">
+                                💡 <strong>核心指标：</strong> 关注"人力成本占比"与"伙食费盈亏平衡点"。
+                            </div>
+                        </div>
+
+                        <!-- Refund Simulation -->
+                        <div class="card p-6">
+                            <h3 class="text-lg font-semibold text-slate-800 mb-4">2.2 智能退费审核模拟</h3>
+                            <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
+                                <h4 class="font-bold text-yellow-800 text-sm mb-2">待审批申请：王小明 (中二班)</h4>
+                                <div class="flex justify-between text-sm mb-2">
+                                    <span class="text-slate-600">申请退费天数：</span>
+                                    <span class="font-bold">10 天</span>
+                                </div>
+                                <div class="flex justify-between text-sm mb-4">
+                                    <span class="text-slate-600">系统考勤记录：</span>
+                                    <span class="font-bold text-red-600">缺勤 3 天</span>
+                                </div>
+                                <div id="audit-result" class="hidden mb-3 text-sm font-bold"></div>
+                                <div class="flex gap-2">
+                                    <button onclick="auditRefund(true)" class="flex-1 bg-green-600 text-white py-2 rounded text-sm hover:bg-green-700">批准</button>
+                                    <button onclick="auditRefund(false)" class="flex-1 bg-red-600 text-white py-2 rounded text-sm hover:bg-red-700">驳回 (高风险)</button>
+                                </div>
+                            </div>
+                            <p class="text-sm text-slate-600">
+                                <strong>系统价值：</strong> 自动关联考勤数据。如上图所示，财务申请天数与实际缺勤不符，系统会弹出"高风险预警"，您只需点击"驳回"。
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            initFinanceChart();
+        }
+
+        function renderSafetyMode(container) {
+            container.innerHTML = `
+                 <div class="space-y-6 animate-fade-in">
+                    <div class="mb-6">
+                        <h2 class="text-2xl font-bold text-slate-900">安全巡查：隐患可视化</h2>
+                        <p class="text-slate-600 mt-2">场景：办公室远程监控。从食品安全到设备维护。</p>
+                    </div>
+
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <!-- Maintenance Analysis -->
+                        <div class="card p-6">
+                            <h3 class="text-lg font-semibold text-slate-800 mb-4">3.2 维修看板 (高频故障分析)</h3>
+                            <div class="chart-container">
+                                <canvas id="maintenanceChart"></canvas>
+                            </div>
+                            <div class="mt-4 p-4 bg-indigo-50 rounded-lg border border-indigo-100">
+                                <h4 class="font-bold text-indigo-900 text-sm">💡 智能决策建议</h4>
+                                <p class="text-sm text-indigo-700 mt-1">
+                                    监测到"小一班空调"本月已报修 3 次，累计维修费 800 元。
+                                    <br><strong>建议：</strong> 不再维修，直接申请更换新机，避免无底洞投入。
+                                </p>
+                            </div>
+                        </div>
+
+                        <!-- Kitchen Safety -->
+                        <div class="card p-6">
+                            <h3 class="text-lg font-semibold text-slate-800 mb-4">3.1 厨房食安监管</h3>
+                            <div class="space-y-4">
+                                <div class="flex items-start gap-3">
+                                    <div class="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center text-green-600 text-lg">📸</div>
+                                    <div>
+                                        <div class="font-medium text-slate-900">留样记录</div>
+                                        <div class="text-sm text-slate-500">今日 09:00 已上传照片 (带时间水印)</div>
+                                    </div>
+                                </div>
+                                <div class="flex items-start gap-3">
+                                    <div class="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center text-red-600 text-lg">⚠️</div>
+                                    <div>
+                                        <div class="font-medium text-slate-900">采购价格异常</div>
+                                        <div class="text-sm text-slate-500">今日"猪肉"采购单价高于市场均价 15%。</div>
+                                        <button class="mt-2 text-xs bg-white border border-slate-300 px-2 py-1 rounded hover:bg-slate-50">查看历史均价对比</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            initMaintenanceChart();
+        }
+
+        function renderTeamMode(container) {
+            container.innerHTML = `
+                <div class="space-y-6 animate-fade-in">
+                    <div class="mb-6">
+                        <h2 class="text-2xl font-bold text-slate-900">队伍建设：绩效量化评估</h2>
+                        <p class="text-slate-600 mt-2">场景：学期末评优或日常观察。用数据评价员工，而非凭感觉。</p>
+                    </div>
+
+                    <div class="card p-6">
+                         <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
+                            <h3 class="text-lg font-semibold text-slate-800">4.1 教师能力雷达对比</h3>
+                            <div class="text-sm text-slate-500 bg-slate-100 px-3 py-1 rounded-full mt-2 md:mt-0">
+                                🔵 李老师 (优秀模板) vs 🔴 王老师 (待提升)
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                            <div class="chart-container">
+                                <canvas id="teamChart"></canvas>
+                            </div>
+                            <div class="flex flex-col justify-center space-y-4">
+                                <div class="p-4 bg-slate-50 rounded-lg border-l-4 border-blue-500">
+                                    <h4 class="font-bold text-slate-800">观察记录质量</h4>
+                                    <p class="text-sm text-slate-600">AI 评定李老师的观察记录详实且频繁，有效捕捉幼儿成长瞬间。</p>
+                                </div>
+                                <div class="p-4 bg-slate-50 rounded-lg border-l-4 border-red-400">
+                                    <h4 class="font-bold text-slate-800">家园互动响应</h4>
+                                    <p class="text-sm text-slate-600">王老师平均回复时间 > 4小时，且收到2条关于"态度"的负面反馈。系统已生成谈话建议。</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            initTeamChart();
+        }
+
+        function renderLogisticsMode(container) {
+            container.innerHTML = `
+                 <div class="space-y-6 animate-fade-in">
+                    <div class="mb-6">
+                        <h2 class="text-2xl font-bold text-slate-900">后勤内控：堵住漏洞</h2>
+                        <p class="text-slate-600 mt-2">场景：物资审批与成本控制。用数据说话，减少浪费。</p>
+                    </div>
+
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <div class="card p-6">
+                            <h3 class="text-lg font-semibold text-slate-800 mb-4">5.1 物资领用异常预警</h3>
+                            <div class="chart-container">
+                                <canvas id="logisticsChart"></canvas>
+                            </div>
+                            <div class="mt-4 text-sm bg-red-50 text-red-800 p-3 rounded">
+                                <strong>发现异常：</strong> A班本周领用抽纸 50 包，远超 B班 (10 包) 及全园平均水平。<br>
+                                <em>行动建议：截图发给后勤主任，询问是浪费还是私带？</em>
+                            </div>
+                        </div>
+                        
+                        <div class="card p-6">
+                            <h3 class="text-lg font-semibold text-slate-800 mb-4">5.2 食谱成本控制</h3>
+                            <div class="relative pt-1">
+                                <div class="flex mb-2 items-center justify-between">
+                                    <div>
+                                        <span class="text-xs font-semibold inline-block py-1 px-2 uppercase rounded-full text-indigo-600 bg-indigo-200">
+                                            伙食费结余率
+                                        </span>
+                                    </div>
+                                    <div class="text-right">
+                                        <span class="text-xs font-semibold inline-block text-indigo-600">
+                                            8% (超标)
+                                        </span>
+                                    </div>
+                                </div>
+                                <div class="overflow-hidden h-4 mb-4 text-xs flex rounded bg-indigo-200">
+                                    <div style="width: 8%" class="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-red-500"></div>
+                                    <div style="width: 5%" class="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-green-500" title="建议范围 2-5%"></div>
+                                </div>
+                                <p class="text-sm text-slate-600">
+                                    当前结余率 <strong>8%</strong>，高于建议值 (2-5%)。
+                                    <br>这意味着孩子可能没吃好，需警惕家长投诉。建议下周增加高蛋白食材采购。
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            initLogisticsChart();
+        }
+
+        function renderFAQ(container) {
+            container.innerHTML = `
+                <div class="space-y-6 animate-fade-in max-w-3xl mx-auto">
+                    <div class="mb-6 text-center">
+                        <h2 class="text-2xl font-bold text-slate-900">常见决策场景 FAQ</h2>
+                        <p class="text-slate-600 mt-2">为您解答多园区管理及数据安全问题。</p>
+                    </div>
+
+                    <div class="space-y-4">
+                        <div class="card p-6 cursor-pointer hover:bg-slate-50 transition" onclick="this.querySelector('.ans').classList.toggle('hidden')">
+                            <h3 class="font-bold text-lg text-slate-800 flex justify-between">
+                                Q: 我在出差，怎么看多个园区的数据？
+                                <span class="text-indigo-500">▼</span>
+                            </h3>
+                            <div class="ans hidden mt-3 text-slate-600 pt-3 border-t border-slate-100">
+                                点击顶部导航栏的"当前园区"下拉菜单，选择 <strong>"集团视图"</strong>。您可以看到所有分园的核心数据对比（收入排名、出勤率排名、事故率排名）。
+                            </div>
+                        </div>
+
+                        <div class="card p-6 cursor-pointer hover:bg-slate-50 transition" onclick="this.querySelector('.ans').classList.toggle('hidden')">
+                            <h3 class="font-bold text-lg text-slate-800 flex justify-between">
+                                Q: 怎么防止老师离职带走生源信息？
+                                <span class="text-indigo-500">▼</span>
+                            </h3>
+                            <div class="ans hidden mt-3 text-slate-600 pt-3 border-t border-slate-100">
+                                系统设有 <strong>"敏感数据保护"</strong>。在【系统设置 → 权限管理】中，您可以设置老师"只能查看不能导出"家长电话，或者开启"号码脱敏"（显示为 139****8888，点击拨号按钮才能联系）。
+                            </div>
+                        </div>
+
+                        <div class="card p-6 cursor-pointer hover:bg-slate-50 transition" onclick="this.querySelector('.ans').classList.toggle('hidden')">
+                            <h3 class="font-bold text-lg text-slate-800 flex justify-between">
+                                Q: 有紧急通知要发给全园家长，怎么最快？
+                                <span class="text-indigo-500">▼</span>
+                            </h3>
+                            <div class="ans hidden mt-3 text-slate-600 pt-3 border-t border-slate-100">
+                                使用 <strong>"园长发布"</strong> 功能（首页快捷入口）。编辑文字/语音，勾选"全体家长"，点击发送。系统会通过微信强制推送提醒，并统计"谁没看"。
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+
+        // --- Chart Initializers ---
+
+        function initAttendanceChart(percentage) {
+            const ctx = document.getElementById('attendanceChart').getContext('2d');
+            const isLow = percentage < 90;
+            
+            charts.attendance = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['实到', '缺勤'],
+                    datasets: [{
+                        data: [percentage, 100 - percentage],
+                        backgroundColor: [isLow ? '#ef4444' : '#4f46e5', '#e2e8f0'],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '75%',
+                    plugins: {
+                        legend: { position: 'bottom' },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return context.label + ': ' + context.raw + '%';
+                                }
+                            }
+                        }
+                    }
+                },
+                plugins: [{
+                    id: 'textCenter',
+                    beforeDraw: function(chart) {
+                        var width = chart.width, height = chart.height, ctx = chart.ctx;
+                        ctx.restore();
+                        var fontSize = (height / 114).toFixed(2);
+                        ctx.font = 'bold ' + fontSize + 'em sans-serif';
+                        ctx.textBaseline = 'middle';
+                        ctx.fillStyle = isLow ? '#ef4444' : '#1e293b';
+                        var text = percentage + '%',
+                            textX = Math.round((width - ctx.measureText(text).width) / 2),
+                            textY = height / 2;
+                        ctx.fillText(text, textX, textY);
+                        ctx.save();
+                    }
+                }]
+            });
+        }
+
+        function toggleAttendanceData() {
+            const chart = charts.attendance;
+            const alertBox = document.getElementById('attendance-alert');
+            // Toggle between 95 and 88
+            const current = chart.data.datasets[0].data[0];
+            const newVal = current === 95 ? 88 : 95;
+            
+            chart.destroy(); // Destroy and recreate to update color and center text logic properly
+            initAttendanceChart(newVal);
+
+            if (newVal < 90) {
+                alertBox.classList.remove('hidden');
+                alertBox.classList.add('block');
+            } else {
+                alertBox.classList.add('hidden');
+                alertBox.classList.remove('block');
+            }
+        }
+
+        function initFinanceChart() {
+            const ctx = document.getElementById('financeChart').getContext('2d');
+            charts.finance = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['1月', '2月', '3月'],
+                    datasets: [
+                        { label: '总收入', data: [120, 150, 180], backgroundColor: '#10b981' },
+                        { label: '人力成本', data: [60, 65, 70], backgroundColor: '#f59e0b' },
+                        { label: '运营成本', data: [30, 40, 50], backgroundColor: '#6366f1' }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: { y: { beginAtZero: true } }
+                }
+            });
+        }
+
+        function auditRefund(approve) {
+            const resultDiv = document.getElementById('audit-result');
+            resultDiv.classList.remove('hidden');
+            if (approve) {
+                resultDiv.innerHTML = '<span class="text-red-600">❌ 错误决策：考勤数据显示仅缺勤3天，批准10天退费会导致财务损失。</span>';
+            } else {
+                resultDiv.innerHTML = '<span class="text-green-600">✅ 正确决策：系统已协助您拦截了一笔不合理的退费申请。</span>';
+            }
+        }
+
+        function initMaintenanceChart() {
+            const ctx = document.getElementById('maintenanceChart').getContext('2d');
+            charts.maintenance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: ['W1', 'W2', 'W3', 'W4'],
+                    datasets: [{
+                        label: '小一班空调累计维修费',
+                        data: [0, 200, 500, 800],
+                        borderColor: '#ef4444',
+                        backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                        fill: true,
+                        tension: 0.3
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                }
+            });
+        }
+
+        function initTeamChart() {
+            const ctx = document.getElementById('teamChart').getContext('2d');
+            charts.team = new Chart(ctx, {
+                type: 'radar',
+                data: {
+                    labels: ['观察记录质量', '家园互动响应', '班级出勤率', '活动组织', '文档合规性'],
+                    datasets: [
+                        {
+                            label: '李老师',
+                            data: [85, 90, 95, 88, 92],
+                            borderColor: '#3b82f6',
+                            backgroundColor: 'rgba(59, 130, 246, 0.2)',
+                        },
+                        {
+                            label: '王老师',
+                            data: [60, 75, 85, 70, 80],
+                            borderColor: '#ef4444',
+                            backgroundColor: 'rgba(239, 68, 68, 0.2)',
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: { r: { min: 0, max: 100 } }
+                }
+            });
+        }
+
+        function initLogisticsChart() {
+            const ctx = document.getElementById('logisticsChart').getContext('2d');
+            charts.logistics = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['A班', 'B班', 'C班', 'D班'],
+                    datasets: [{
+                        label: '本周抽纸领用量 (包)',
+                        data: [50, 10, 12, 11],
+                        backgroundColor: ['#ef4444', '#cbd5e1', '#cbd5e1', '#cbd5e1']
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                afterLabel: function(context) {
+                                    if(context.raw > 20) return '⚠️ 异常数据：远超平均水平';
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // --- Start App ---
+        document.addEventListener('DOMContentLoaded', init);
+
+    </script>
+</body>
+</html>
+

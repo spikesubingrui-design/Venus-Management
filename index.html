@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>金星教育系统 - 齐德教育 Kidda Education Group</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@700;900&family=Noto+Sans+SC:wght@400;500;700&family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <script>
+      // 关键补丁：确保 process 对象存在，防止代码崩溃
+      window.process = window.process || { env: {} };
+    </script>
+    <style>
+        :root { --brand-gold: #BF953F; }
+        body { font-family: 'Noto Sans SC', 'Inter', sans-serif; -webkit-font-smoothing: antialiased; }
+        .font-brand { font-family: 'Noto Serif SC', serif; }
+        .page-transition { animation: fadeIn 0.4s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-900">
+    <div id="root"></div>
+    <script type="module" src="./index.tsx"></script>
+</body>
+</html>
