@@ -239,13 +239,28 @@ const KitchenView: React.FC<KitchenViewProps> = ({ currentUser }) => {
       .sort((a, b) => b.total - a.total);
   };
 
+  // 餐次颜色配置
+  const getMealColors = (mealKey: string) => {
+    const colors: Record<string, { bg: string; border: string; labelColor: string; ingredientBg: string }> = {
+      breakfast: { bg: 'bg-amber-50', border: 'border-amber-200', labelColor: 'text-amber-600', ingredientBg: 'bg-amber-100/50' },
+      morningFruitSnack: { bg: 'bg-red-50', border: 'border-red-200', labelColor: 'text-red-600', ingredientBg: 'bg-red-100/50' },
+      morningSnack: { bg: 'bg-green-50', border: 'border-green-200', labelColor: 'text-green-600', ingredientBg: 'bg-green-100/50' },
+      lunch: { bg: 'bg-rose-50', border: 'border-rose-200', labelColor: 'text-rose-600', ingredientBg: 'bg-rose-100/50' },
+      milkSnack: { bg: 'bg-blue-50', border: 'border-blue-200', labelColor: 'text-blue-600', ingredientBg: 'bg-blue-100/50' },
+      afternoonSnack: { bg: 'bg-orange-50', border: 'border-orange-200', labelColor: 'text-orange-600', ingredientBg: 'bg-orange-100/50' },
+      dinner: { bg: 'bg-purple-50', border: 'border-purple-200', labelColor: 'text-purple-600', ingredientBg: 'bg-purple-100/50' },
+    };
+    return colors[mealKey] || { bg: 'bg-slate-50', border: 'border-slate-200', labelColor: 'text-slate-600', ingredientBg: 'bg-slate-100/50' };
+  };
+
   const renderDish = (label: string, dish: MealDish | undefined, mealKey: string, subKey: string | null, icon?: React.ReactNode) => {
     if (!dish || !dish.dishName || dish.dishName === '待定') return null;
+    const colors = getMealColors(mealKey);
     return (
-      <div className="bg-slate-50 p-5 rounded-[2rem] border border-transparent hover:border-amber-200 transition-all">
+      <div className={`${colors.bg} p-5 rounded-[2rem] border ${colors.border} hover:shadow-md transition-all`}>
         <div className="flex justify-between items-start mb-3">
           <div className="flex-1">
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">{label}</p>
+            <p className={`text-[10px] font-black ${colors.labelColor} uppercase tracking-widest mb-1`}>{label}</p>
             <input 
               value={dish.dishName || ""}
               onChange={(e) => updateDishName(activeDayIdx, mealKey, subKey, e.target.value)}
@@ -257,16 +272,16 @@ const KitchenView: React.FC<KitchenViewProps> = ({ currentUser }) => {
         
         <div className="flex flex-wrap gap-2">
           {(dish.ingredients || []).map((ing, idx) => (
-            <div key={idx} className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-xl border border-slate-100 shadow-sm">
-              <span className="text-xs font-bold text-slate-600">{ing.name || "未知食材"}</span>
-              <div className="flex items-center gap-1 border-l border-slate-100 pl-2">
+            <div key={idx} className={`flex items-center gap-2 ${colors.ingredientBg} px-3 py-1.5 rounded-xl border ${colors.border} shadow-sm`}>
+              <span className="text-xs font-bold text-slate-700">{ing.name || "未知食材"}</span>
+              <div className="flex items-center gap-1 border-l border-slate-200 pl-2">
                 <input 
                   type="number"
                   value={ing.perPersonGrams || 0}
                   onChange={(e) => updateIngredientGrams(activeDayIdx, mealKey, subKey, idx, Number(e.target.value))}
-                  className="w-8 bg-transparent text-xs font-black text-amber-600 outline-none text-right"
+                  className="w-12 bg-transparent text-xs font-black text-amber-600 outline-none text-right"
                 />
-                <span className="text-[10px] text-slate-400 font-bold">g</span>
+                <span className="text-[10px] text-slate-500 font-bold">g</span>
               </div>
             </div>
           ))}
@@ -1054,13 +1069,28 @@ const KitchenView: React.FC<KitchenViewProps> = ({ currentUser }) => {
                   {/* 渲染每餐详情 */}
                   {(() => {
                     const day = selectedHistoryRecord.days[historyDetailDayIdx];
-                    const renderMealDetail = (label: string, dish: MealDish | undefined, icon: React.ReactNode, bgColor: string, mealKey: string, subKey: string | null = null) => {
+                    // 历史详情的颜色配置
+                    const getHistoryMealColors = (mealKey: string) => {
+                      const colors: Record<string, { bg: string; border: string; labelColor: string }> = {
+                        breakfast: { bg: 'bg-amber-50', border: 'border-amber-300', labelColor: 'text-amber-700' },
+                        morningFruitSnack: { bg: 'bg-red-50', border: 'border-red-300', labelColor: 'text-red-700' },
+                        morningSnack: { bg: 'bg-green-50', border: 'border-green-300', labelColor: 'text-green-700' },
+                        lunch: { bg: 'bg-rose-50', border: 'border-rose-300', labelColor: 'text-rose-700' },
+                        milkSnack: { bg: 'bg-blue-50', border: 'border-blue-300', labelColor: 'text-blue-700' },
+                        afternoonSnack: { bg: 'bg-orange-50', border: 'border-orange-300', labelColor: 'text-orange-700' },
+                        dinner: { bg: 'bg-purple-50', border: 'border-purple-300', labelColor: 'text-purple-700' },
+                      };
+                      return colors[mealKey] || { bg: 'bg-slate-50', border: 'border-slate-300', labelColor: 'text-slate-700' };
+                    };
+
+                    const renderMealDetail = (label: string, dish: MealDish | undefined, icon: React.ReactNode, _bgColor: string, mealKey: string, subKey: string | null = null) => {
                       if (!dish || !dish.dishName || dish.dishName === '待定') return null;
+                      const colors = getHistoryMealColors(mealKey);
                       return (
-                        <div className={`${bgColor} p-4 rounded-2xl`}>
+                        <div className={`${colors.bg} p-4 rounded-2xl border-2 ${colors.border}`}>
                           <div className="flex items-center gap-2 mb-2">
                             {icon}
-                            <span className="text-xs font-black text-slate-500 uppercase tracking-widest">{label}</span>
+                            <span className={`text-xs font-black ${colors.labelColor} uppercase tracking-widest`}>{label}</span>
                           </div>
                           {isEditingHistory ? (
                             <input
@@ -1073,19 +1103,18 @@ const KitchenView: React.FC<KitchenViewProps> = ({ currentUser }) => {
                           )}
                           <div className="flex flex-wrap gap-2">
                             {dish.ingredients?.map((ing, idx) => (
-                              <span key={idx} className="bg-white px-3 py-1 rounded-lg text-sm flex items-center gap-1">
-                                <span className="text-slate-700">{ing.name}</span>
+                              <span key={idx} className={`${colors.bg} border ${colors.border} px-3 py-1.5 rounded-lg text-sm flex items-center gap-1 shadow-sm`}>
+                                <span className="text-slate-700 font-medium">{ing.name}</span>
                                 {isEditingHistory ? (
                                   <input
                                     type="number"
                                     value={ing.perPersonGrams || 0}
                                     onChange={(e) => updateHistoryIngredientGrams(historyDetailDayIdx, mealKey, subKey, idx, Number(e.target.value))}
-                                    className="w-12 bg-amber-50 border border-amber-200 rounded px-1 text-amber-600 font-bold text-center"
+                                    className="w-14 bg-white border border-amber-300 rounded px-1 text-amber-600 font-bold text-center"
                                   />
                                 ) : (
-                                  <span className="text-amber-600 font-bold ml-1">{ing.perPersonGrams}g</span>
+                                  <span className="text-amber-600 font-bold ml-1 min-w-[40px] text-right">{ing.perPersonGrams}g</span>
                                 )}
-                                {!isEditingHistory && <span className="text-slate-400">g</span>}
                               </span>
                             ))}
                           </div>
