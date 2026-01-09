@@ -12,14 +12,49 @@
     </script>
     <style>
         :root { --brand-gold: #BF953F; }
-        body { font-family: 'Noto Sans SC', 'Inter', sans-serif; -webkit-font-smoothing: antialiased; }
+        body { 
+          font-family: 'Noto Sans SC', 'Inter', sans-serif; 
+          -webkit-font-smoothing: antialiased;
+          -webkit-tap-highlight-color: transparent;
+          overscroll-behavior: none;
+        }
         .font-brand { font-family: 'Noto Serif SC', serif; }
         .page-transition { animation: fadeIn 0.4s ease-out; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
         .custom-scrollbar::-webkit-scrollbar { width: 4px; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
+        
+        /* 移动端适配 */
+        @supports (padding-bottom: env(safe-area-inset-bottom)) {
+          .safe-area-pb { padding-bottom: env(safe-area-inset-bottom); }
+        }
+        
+        /* 移动端触摸优化 */
+        @media (max-width: 767px) {
+          button, a, input, select, textarea {
+            -webkit-tap-highlight-color: transparent;
+          }
+          input, select, textarea {
+            font-size: 16px !important; /* 防止iOS自动缩放 */
+          }
+          /* 隐藏移动端滚动条 */
+          .custom-scrollbar::-webkit-scrollbar {
+            display: none;
+          }
+          .custom-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+          }
+        }
+        
+        /* 响应式网格 */
+        @media (max-width: 639px) {
+          .grid-cols-2 { grid-template-columns: repeat(1, minmax(0, 1fr)); }
+          .grid-cols-3 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+          .grid-cols-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        }
     </style>
-  <script type="module" crossorigin src="./assets/main-D1B92Drj.js"></script>
+  <script type="module" crossorigin src="./assets/main-8GmjE7hb.js"></script>
 </head>
 <body class="bg-slate-50 text-slate-900">
     <div id="root"></div>
