@@ -17,7 +17,8 @@ import {
   getProfessionalObservations,
   generateProfessionalObservation,
   shareToParent,
-  deleteDraft
+  deleteDraft,
+  saveProfessionalObservation
 } from '../services/observationService';
 
 interface ObservationViewProps {
@@ -46,6 +47,10 @@ const ObservationView: React.FC<ObservationViewProps> = ({ currentUser }) => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatingText, setGeneratingText] = useState('');
   const [selectedDraft, setSelectedDraft] = useState<ObservationDraft | null>(null);
+  
+  // 编辑状态
+  const [editingObs, setEditingObs] = useState<ProfessionalObservation | null>(null);
+  const [editForm, setEditForm] = useState<Partial<ProfessionalObservation>>({});
   
   // 筛选
   const [searchTerm, setSearchTerm] = useState('');
@@ -253,6 +258,56 @@ const ObservationView: React.FC<ObservationViewProps> = ({ currentUser }) => {
       deleteDraft(draftId);
       setDrafts(getDrafts());
     }
+  };
+
+  // 开始编辑专业观察记录
+  const handleStartEdit = (obs: ProfessionalObservation) => {
+    setEditingObs(obs);
+    setEditForm({
+      title: obs.title,
+      background: obs.background,
+      behavior: obs.behavior,
+      analysis: obs.analysis,
+      developmentLevel: obs.developmentLevel,
+      suggestions: [...obs.suggestions],
+      parentTips: obs.parentTips || '',
+    });
+  };
+
+  // 保存编辑
+  const handleSaveEdit = () => {
+    if (!editingObs) return;
+    
+    const updatedObs: ProfessionalObservation = {
+      ...editingObs,
+      ...editForm,
+      suggestions: editForm.suggestions || [],
+      updatedAt: new Date().toISOString(),
+    };
+    
+    saveProfessionalObservation(updatedObs);
+    setProfessionalObs(getProfessionalObservations());
+    setEditingObs(null);
+    setEditForm({});
+  };
+
+  // 更新建议列表
+  const handleUpdateSuggestion = (index: number, value: string) => {
+    const newSuggestions = [...(editForm.suggestions || [])];
+    newSuggestions[index] = value;
+    setEditForm({ ...editForm, suggestions: newSuggestions });
+  };
+
+  // 添加建议
+  const handleAddSuggestion = () => {
+    const newSuggestions = [...(editForm.suggestions || []), ''];
+    setEditForm({ ...editForm, suggestions: newSuggestions });
+  };
+
+  // 删除建议
+  const handleRemoveSuggestion = (index: number) => {
+    const newSuggestions = (editForm.suggestions || []).filter((_, i) => i !== index);
+    setEditForm({ ...editForm, suggestions: newSuggestions });
   };
 
   return (
@@ -762,21 +817,187 @@ const ObservationView: React.FC<ObservationViewProps> = ({ currentUser }) => {
                           )}
 
                           {/* 操作按钮 */}
-                          {!obs.sharedToParent && (
+                          <div className="flex gap-2">
                             <button
-                              onClick={() => handleShare(obs.id)}
-                              className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-emerald-600 text-white rounded-xl font-bold hover:bg-emerald-700 transition-colors"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleStartEdit(obs);
+                              }}
+                              className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-slate-100 text-slate-700 rounded-xl font-bold hover:bg-slate-200 transition-colors"
                             >
-                              <Share2 className="w-4 h-4" />
-                              分享给家长
+                              <Edit3 className="w-4 h-4" />
+                              编辑修改
                             </button>
-                          )}
+                            {!obs.sharedToParent && (
+                              <button
+                                onClick={() => handleShare(obs.id)}
+                                className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-emerald-600 text-white rounded-xl font-bold hover:bg-emerald-700 transition-colors"
+                              >
+                                <Share2 className="w-4 h-4" />
+                                分享给家长
+                              </button>
+                            )}
+                          </div>
                         </div>
                       </div>
                     )}
                   </div>
                 ))
               )}
+            </div>
+          )}
+
+          {/* 编辑观察记录模态框 */}
+          {editingObs && (
+            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+              <div className="bg-white rounded-2xl w-full max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
+                {/* 头部 */}
+                <div className="p-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-purple-100 rounded-xl">
+                      <Edit3 className="w-5 h-5 text-purple-600" />
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-slate-800">编辑观察记录</h3>
+                      <p className="text-xs text-slate-500">{editingObs.studentName} · {editingObs.class}</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => { setEditingObs(null); setEditForm({}); }}
+                    className="p-2 hover:bg-slate-200 rounded-full transition-colors"
+                  >
+                    <X className="w-5 h-5 text-slate-500" />
+                  </button>
+                </div>
+
+                {/* 表单内容 */}
+                <div className="p-6 space-y-5 overflow-y-auto flex-1">
+                  {/* 标题 */}
+                  <div>
+                    <label className="block text-sm font-bold text-slate-700 mb-2">观察标题</label>
+                    <input
+                      type="text"
+                      value={editForm.title || ''}
+                      onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
+                      className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-purple-500 font-bold"
+                      placeholder="例如：小明在建构区的专注力表现"
+                    />
+                  </div>
+
+                  {/* 观察背景 */}
+                  <div>
+                    <label className="block text-sm font-bold text-slate-700 mb-2">观察背景</label>
+                    <textarea
+                      value={editForm.background || ''}
+                      onChange={(e) => setEditForm({ ...editForm, background: e.target.value })}
+                      className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-purple-500 resize-none h-20"
+                      placeholder="描述观察的时间、地点、活动背景"
+                    />
+                  </div>
+
+                  {/* 行为描述 */}
+                  <div>
+                    <label className="block text-sm font-bold text-slate-700 mb-2">行为描述</label>
+                    <textarea
+                      value={editForm.behavior || ''}
+                      onChange={(e) => setEditForm({ ...editForm, behavior: e.target.value })}
+                      className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-purple-500 resize-none h-28"
+                      placeholder="客观详细描述观察到的行为"
+                    />
+                  </div>
+
+                  {/* 行为分析 */}
+                  <div>
+                    <label className="block text-sm font-bold text-purple-700 mb-2 flex items-center gap-1">
+                      <Brain className="w-4 h-4" />
+                      行为分析
+                    </label>
+                    <textarea
+                      value={editForm.analysis || ''}
+                      onChange={(e) => setEditForm({ ...editForm, analysis: e.target.value })}
+                      className="w-full px-4 py-3 bg-purple-50 border border-purple-200 rounded-xl outline-none focus:ring-2 focus:ring-purple-500 resize-none h-28"
+                      placeholder="基于《3-6岁指南》分析行为背后的发展意义"
+                    />
+                  </div>
+
+                  {/* 发展水平评估 */}
+                  <div>
+                    <label className="block text-sm font-bold text-blue-700 mb-2">发展水平评估</label>
+                    <textarea
+                      value={editForm.developmentLevel || ''}
+                      onChange={(e) => setEditForm({ ...editForm, developmentLevel: e.target.value })}
+                      className="w-full px-4 py-3 bg-blue-50 border border-blue-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 resize-none h-20"
+                      placeholder="与指南对照的发展水平判断"
+                    />
+                  </div>
+
+                  {/* 教育建议 */}
+                  <div>
+                    <label className="block text-sm font-bold text-emerald-700 mb-2 flex items-center gap-1">
+                      <Lightbulb className="w-4 h-4" />
+                      教育建议
+                    </label>
+                    <div className="space-y-2">
+                      {(editForm.suggestions || []).map((suggestion, idx) => (
+                        <div key={idx} className="flex gap-2">
+                          <span className="text-emerald-600 font-bold py-3">{idx + 1}.</span>
+                          <input
+                            type="text"
+                            value={suggestion}
+                            onChange={(e) => handleUpdateSuggestion(idx, e.target.value)}
+                            className="flex-1 px-4 py-3 bg-emerald-50 border border-emerald-200 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500"
+                            placeholder="具体可操作的教育建议"
+                          />
+                          <button
+                            onClick={() => handleRemoveSuggestion(idx)}
+                            className="p-3 text-red-500 hover:bg-red-50 rounded-xl transition-colors"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ))}
+                      <button
+                        onClick={handleAddSuggestion}
+                        className="flex items-center gap-2 px-4 py-2 text-emerald-600 hover:bg-emerald-50 rounded-xl transition-colors text-sm font-bold"
+                      >
+                        <Plus className="w-4 h-4" />
+                        添加建议
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* 家长沟通建议 */}
+                  <div>
+                    <label className="block text-sm font-bold text-amber-700 mb-2 flex items-center gap-1">
+                      <Heart className="w-4 h-4" />
+                      家长沟通建议（可选）
+                    </label>
+                    <textarea
+                      value={editForm.parentTips || ''}
+                      onChange={(e) => setEditForm({ ...editForm, parentTips: e.target.value })}
+                      className="w-full px-4 py-3 bg-amber-50 border border-amber-200 rounded-xl outline-none focus:ring-2 focus:ring-amber-500 resize-none h-20"
+                      placeholder="告诉家长可以如何在家配合"
+                    />
+                  </div>
+                </div>
+
+                {/* 底部按钮 */}
+                <div className="p-4 border-t border-slate-200 flex gap-3 bg-slate-50">
+                  <button
+                    onClick={() => { setEditingObs(null); setEditForm({}); }}
+                    className="flex-1 px-6 py-3 bg-slate-200 text-slate-700 rounded-xl font-bold hover:bg-slate-300 transition-colors"
+                  >
+                    取消
+                  </button>
+                  <button
+                    onClick={handleSaveEdit}
+                    className="flex-1 px-6 py-3 bg-purple-600 text-white rounded-xl font-bold hover:bg-purple-700 transition-colors flex items-center justify-center gap-2"
+                  >
+                    <CheckCircle2 className="w-5 h-5" />
+                    保存修改
+                  </button>
+                </div>
+              </div>
             </div>
           )}
         </div>
