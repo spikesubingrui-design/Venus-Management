@@ -5,7 +5,66 @@
 
 import { ObservationDraft, ProfessionalObservation, Student } from '../types';
 import { getData, saveData } from './storageService';
-import { chatWithAssistant } from './doubaoService';
+
+// 豆包 API 配置 - Doubao-Seed-1.6
+const DOUBAO_API_URL = "https://ark.cn-beijing.volces.com/api/v3/chat/completions";
+const DOUBAO_MODEL = "doubao-seed-1-6-251015";
+
+// 获取 API Key
+const getApiKey = (): string => {
+  return process.env.DOUBAO_API_KEY || process.env.API_KEY || "";
+};
+
+/**
+ * 调用豆包 API 进行观察记录分析
+ */
+async function callObservationAI(prompt: string): Promise<string> {
+  const apiKey = getApiKey();
+  if (!apiKey) {
+    console.error("豆包 API Key 未配置");
+    throw new Error("API_KEY_MISSING");
+  }
+
+  const requestBody = {
+    model: DOUBAO_MODEL,
+    messages: [
+      { 
+        role: "system", 
+        content: "你是一位专业的幼儿园教师，精通《3-6岁儿童学习与发展指南》。请严格按照要求的JSON格式输出，不要输出其他任何内容。" 
+      },
+      { 
+        role: "user", 
+        content: [{ type: "text", text: prompt }]
+      }
+    ],
+    temperature: 0.7,
+    max_completion_tokens: 4096,
+    reasoning_effort: "medium",
+    response_format: { type: "json_object" }
+  };
+
+  console.log("🤖 调用豆包 AI 分析观察记录...");
+
+  const response = await fetch(DOUBAO_API_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify(requestBody),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error("豆包 API 错误:", response.status, errorText);
+    throw new Error(`API request failed: ${response.status} - ${errorText}`);
+  }
+
+  const data = await response.json();
+  const content = data.choices?.[0]?.message?.content || "";
+  console.log("✅ AI 分析完成");
+  return content;
+}
 
 // 存储键
 const OBSERVATION_KEYS = {
@@ -146,7 +205,7 @@ export function getProfessionalObservations(filters?: {
 }
 
 /**
- * AI润色生成专业观察记录
+ * AI润色生成专业观察记录（使用豆包 Doubao-Seed-1.6）
  */
 export async function generateProfessionalObservation(
   draft: ObservationDraft,
@@ -154,10 +213,9 @@ export async function generateProfessionalObservation(
   onStream?: (text: string) => void
 ): Promise<ProfessionalObservation> {
   const ageGroup = student.age <= 4 ? '3-4岁' : student.age <= 5 ? '4-5岁' : '5-6岁';
-  const domainInfo = draft.domain ? DEVELOPMENT_GUIDE[draft.domain] : null;
+  const domainInfo = draft.domain ? DEVELOPMENT_GUIDE[draft.domain as keyof typeof DEVELOPMENT_GUIDE] : null;
   
-  const prompt = `你是一位专业的幼儿园教师，精通《3-6岁儿童学习与发展指南》。
-请将以下教师的简单观察记录润色成专业的幼儿观察记录。
+  const prompt = `请将以下教师的简单观察记录润色成专业的幼儿观察记录。
 
 该幼儿信息：
 - 姓名：${student.name}
@@ -169,55 +227,57 @@ ${draft.activity ? `- 活动场景：${draft.activity}` : ''}
 ${domainInfo ? `
 《3-6岁指南》${draft.domain}领域参考：
 目标：${domainInfo.goals.join('；')}
-${ageGroup}典型表现：${domainInfo.indicators[ageGroup].join('；')}
+${ageGroup}典型表现：${(domainInfo.indicators as any)[ageGroup]?.join('；') || ''}
 ` : ''}
 
 教师原始记录：
 ${draft.rawContent}
 
-请按以下JSON格式输出（不要输出其他内容）：
+请严格按以下JSON格式输出，不要输出其他任何内容：
 {
-  "title": "观察标题（简洁有力）",
-  "background": "观察背景（时间、地点、活动背景）",
-  "behavior": "行为描述（客观详细描述观察到的行为）",
-  "analysis": "行为分析（基于指南分析行为背后的发展意义）",
-  "developmentLevel": "发展水平评估（与指南对照的发展水平判断）",
-  "suggestions": ["教育建议1", "教育建议2", "教育建议3"],
-  "parentTips": "家长沟通建议（可选）",
-  "guidelineRefs": [{"domain": "领域", "goal": "目标", "indicator": "典型表现"}]
+  "title": "观察标题（简洁有力，如：小明在建构区的专注力表现）",
+  "background": "观察背景（描述时间、地点、活动背景，100字以内）",
+  "behavior": "行为描述（客观详细描述观察到的行为，不加主观评价，200字左右）",
+  "analysis": "行为分析（基于《3-6岁指南》分析行为背后的发展意义，150字左右）",
+  "developmentLevel": "发展水平评估（与指南对照的发展水平判断，如：符合该年龄段典型表现/超出预期/需关注支持）",
+  "suggestions": ["教育建议1（具体可操作）", "教育建议2", "教育建议3"],
+  "parentTips": "家长沟通建议（告诉家长可以如何在家配合，100字以内）",
+  "guidelineRefs": [{"domain": "领域名", "goal": "对应目标", "indicator": "对应典型表现"}]
 }`;
 
-  if (onStream) onStream('正在生成专业观察记录...');
+  if (onStream) onStream('🤖 正在调用豆包 AI 分析观察记录...');
   
-  let fullResponse = '';
-  try {
-    fullResponse = await chatWithAssistant(prompt);
-    if (onStream) onStream(fullResponse);
-  } catch (e) {
-    console.error('AI生成失败:', e);
-  }
-
-  // 解析JSON响应
   let parsed: any;
+  
   try {
-    // 尝试提取JSON
-    const jsonMatch = fullResponse.match(/\{[\s\S]*\}/);
-    if (jsonMatch) {
-      parsed = JSON.parse(jsonMatch[0]);
-    } else {
-      throw new Error('未找到JSON');
-    }
-  } catch (e) {
-    // 如果解析失败，使用默认结构
+    const fullResponse = await callObservationAI(prompt);
+    if (onStream) onStream('✅ AI 分析完成，正在解析结果...');
+    
+    // 清理并解析 JSON
+    let cleanJson = fullResponse.trim();
+    cleanJson = cleanJson.replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
+    
+    parsed = JSON.parse(cleanJson);
+    console.log("✅ JSON 解析成功:", parsed.title);
+    
+  } catch (e: any) {
+    console.error('AI生成或解析失败:', e.message);
+    if (onStream) onStream(`⚠️ AI 生成遇到问题: ${e.message}`);
+    
+    // 如果解析失败，使用默认结构但保留原始内容
     parsed = {
-      title: `${student.name}的观察记录`,
-      background: draft.activity || '日常活动',
+      title: `${student.name}的${draft.domain || '日常'}观察记录`,
+      background: draft.activity || '日常活动观察',
       behavior: draft.rawContent,
-      analysis: '（AI分析生成中遇到问题，请手动补充）',
-      developmentLevel: '需进一步观察',
-      suggestions: ['继续观察', '记录更多细节'],
-      parentTips: '',
-      guidelineRefs: []
+      analysis: `基于教师观察，${student.name}在${draft.domain || '活动'}中表现出一定的发展特点，建议继续关注并记录更多细节。`,
+      developmentLevel: '需进一步观察以做准确评估',
+      suggestions: [
+        '继续观察记录该领域的行为表现',
+        '创设更多相关活动机会',
+        '与家长沟通了解在家表现'
+      ],
+      parentTips: '建议家长在家多关注孩子这方面的表现，可以适当提供相关活动机会。',
+      guidelineRefs: draft.domain ? [{ domain: draft.domain, goal: '', indicator: '' }] : []
     };
   }
 
