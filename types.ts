@@ -527,8 +527,8 @@ export interface FeePayment {
   
   // 缴费周期
   period: string;                 // 缴费周期：2026-01 或 2026-01~2026-06
-  periodType: 'monthly' | 'semester' | 'yearly';  // 月缴/学期缴/年缴
-  periodMonths: number;           // 缴费月数（1/6/12）
+  periodType: 'daily' | 'halfMonth' | 'monthly' | 'semester' | 'yearly';  // 按天/半月/月缴/学期缴/年缴
+  periodMonths: number;           // 缴费月数（按天时为天数/22，半月为0.5）
   
   // 费用类型
   feeType: 'tuition' | 'meal' | 'agency' | 'bedding' | 'other';

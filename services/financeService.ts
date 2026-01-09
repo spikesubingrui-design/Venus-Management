@@ -840,7 +840,7 @@ export function getPayments(filters?: {
 export function createPayment(
   student: Student,
   feeType: 'tuition' | 'meal' | 'agency' | 'bedding',
-  periodType: 'monthly' | 'semester' | 'yearly',
+  periodType: 'daily' | 'halfMonth' | 'monthly' | 'semester' | 'yearly',
   paymentInfo: {
     paymentDate: string;
     paymentMethod: FeePayment['paymentMethod'];
@@ -1255,7 +1255,7 @@ export interface StudentPaymentStatus {
   mealDaysOverdue?: number;
   
   // 缴费周期类型
-  lastPeriodType?: 'monthly' | 'semester' | 'yearly';
+  lastPeriodType?: 'daily' | 'halfMonth' | 'monthly' | 'semester' | 'yearly';
   
   // 是否需要缴费
   needsPayment: boolean;
@@ -1281,7 +1281,7 @@ export function getStudentPaymentStatus(student: Student, checkMonth?: string): 
   
   // 计算保教费已缴至
   let tuitionPaidUntil: string | undefined;
-  let lastPeriodType: 'monthly' | 'semester' | 'yearly' | undefined;
+  let lastPeriodType: 'daily' | 'halfMonth' | 'monthly' | 'semester' | 'yearly' | undefined;
   
   if (tuitionPayments.length > 0) {
     const latestTuition = tuitionPayments[0];

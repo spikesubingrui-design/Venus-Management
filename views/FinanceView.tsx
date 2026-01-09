@@ -71,15 +71,32 @@ const FinanceView: React.FC<FinanceViewProps> = ({ currentUser }) => {
     selectedFees: {
       tuition: true,   // 保教费（默认选中）
       meal: true,      // 伙食费（默认选中）
-      agency: false,   // 代办费（一次性，新生默认选中）
-      bedding: false,  // 床品费（一次性，新生默认选中）
     },
-    periodType: 'monthly' as 'monthly' | 'semester' | 'yearly',
+    // 代办费细项（可单独选择）
+    agencyItems: {
+      itemFee: false,      // 项项费 700（大班400）
+      schoolBag: false,    // 书包 120
+      uniform: false,      // 校服 280
+    },
+    // 床品细项（可单独选择）
+    beddingItems: {
+      outerSet: false,     // 外皮170+被芯43+行李袋55=268
+      innerSet: false,     // 内芯三件160
+      fullSet: false,      // 全套428
+    },
+    // 班级类型
+    classType: 'standard' as 'standard' | 'nursery' | 'music',  // 标准班/优苗班/音乐班
+    // 缴费周期
+    periodType: 'monthly' as 'monthly' | 'semester' | 'yearly' | 'halfMonth' | 'daily',
+    // 按天收费的天数
+    dailyDays: 15,
     paymentMethod: 'wechat' as FeePayment['paymentMethod'],
     hasDiscount: false,
     discountType: '' as '' | 'percentage' | 'fixed' | 'custom',
     discountValue: 0,
     discountReason: '',
+    // 优惠应用范围
+    discountTarget: 'total' as 'total' | 'tuition',  // 总额优惠 / 仅保教费优惠
     customAmount: undefined as number | undefined,
     notes: '',
     isNewStudent: false,  // 是否新生（新生自动选中一次性费用）
@@ -1128,6 +1145,147 @@ const FinanceView: React.FC<FinanceViewProps> = ({ currentUser }) => {
           {/* 退费规则设置 */}
           {activeTab === 'settings' && (
             <div className="space-y-6">
+              {/* 收费标准调整 */}
+              <div className="bg-gradient-to-br from-purple-50 to-indigo-50 rounded-2xl p-6 border border-purple-200">
+                <h3 className="text-lg font-black text-purple-800 mb-4 flex items-center gap-2">
+                  <Settings className="w-5 h-5" />
+                  收费标准调整（{campus}）
+                </h3>
+                <p className="text-sm text-purple-600 mb-4">
+                  💡 可在此临时调整本园收费标准，调整后会立即应用到新的收费登记中
+                </p>
+                
+                <div className="grid md:grid-cols-3 gap-4">
+                  {/* 标准班 */}
+                  <div className="bg-white rounded-xl p-4 border border-purple-200">
+                    <h4 className="font-bold text-purple-700 mb-3 text-sm">📚 标准班（月）</h4>
+                    <div className="space-y-3">
+                      <div>
+                        <label className="text-xs text-slate-500">保教费</label>
+                        <div className="flex items-center gap-1">
+                          <span className="text-slate-400">¥</span>
+                          <input
+                            type="number"
+                            defaultValue={2680}
+                            className="w-full px-2 py-1 border border-slate-200 rounded text-sm font-bold"
+                            placeholder="保教费"
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="text-xs text-slate-500">伙食费</label>
+                        <div className="flex items-center gap-1">
+                          <span className="text-slate-400">¥</span>
+                          <input
+                            type="number"
+                            defaultValue={680}
+                            className="w-full px-2 py-1 border border-slate-200 rounded text-sm font-bold"
+                            placeholder="伙食费"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* 优苗班 */}
+                  <div className="bg-white rounded-xl p-4 border border-emerald-200">
+                    <h4 className="font-bold text-emerald-700 mb-3 text-sm">🌱 优苗班（月）</h4>
+                    <div className="space-y-3">
+                      <div>
+                        <label className="text-xs text-slate-500">保教费</label>
+                        <div className="flex items-center gap-1">
+                          <span className="text-slate-400">¥</span>
+                          <input
+                            type="number"
+                            defaultValue={2980}
+                            className="w-full px-2 py-1 border border-slate-200 rounded text-sm font-bold"
+                            placeholder="保教费"
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="text-xs text-slate-500">伙食费</label>
+                        <div className="flex items-center gap-1">
+                          <span className="text-slate-400">¥</span>
+                          <input
+                            type="number"
+                            defaultValue={680}
+                            className="w-full px-2 py-1 border border-slate-200 rounded text-sm font-bold"
+                            placeholder="伙食费"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* 音乐班 */}
+                  <div className="bg-white rounded-xl p-4 border border-blue-200">
+                    <h4 className="font-bold text-blue-700 mb-3 text-sm">🎵 音乐班（月）</h4>
+                    <div className="space-y-3">
+                      <div>
+                        <label className="text-xs text-slate-500">保教费</label>
+                        <div className="flex items-center gap-1">
+                          <span className="text-slate-400">¥</span>
+                          <input
+                            type="number"
+                            defaultValue={3280}
+                            className="w-full px-2 py-1 border border-slate-200 rounded text-sm font-bold"
+                            placeholder="保教费"
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="text-xs text-slate-500">伙食费</label>
+                        <div className="flex items-center gap-1">
+                          <span className="text-slate-400">¥</span>
+                          <input
+                            type="number"
+                            defaultValue={680}
+                            className="w-full px-2 py-1 border border-slate-200 rounded text-sm font-bold"
+                            placeholder="伙食费"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
+                {/* 一次性费用设置 */}
+                <div className="mt-4 p-4 bg-white rounded-xl border border-amber-200">
+                  <h4 className="font-bold text-amber-700 mb-3 text-sm">🎁 一次性费用项目</h4>
+                  <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                    {[
+                      { label: '项项费(标准)', key: 'itemFee', defaultValue: 700 },
+                      { label: '项项费(大班)', key: 'itemFeeSenior', defaultValue: 400 },
+                      { label: '书包', key: 'schoolBag', defaultValue: 120 },
+                      { label: '校服', key: 'uniform', defaultValue: 280 },
+                      { label: '床品全套', key: 'beddingFull', defaultValue: 428 },
+                    ].map(item => (
+                      <div key={item.key}>
+                        <label className="text-xs text-slate-500">{item.label}</label>
+                        <div className="flex items-center gap-1">
+                          <span className="text-slate-400">¥</span>
+                          <input
+                            type="number"
+                            defaultValue={item.defaultValue}
+                            className="w-full px-2 py-1 border border-slate-200 rounded text-sm font-bold"
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                
+                <div className="mt-4 flex justify-end gap-3">
+                  <button className="px-4 py-2 text-sm font-bold text-slate-600 bg-slate-100 rounded-lg hover:bg-slate-200">
+                    重置为默认
+                  </button>
+                  <button className="px-4 py-2 text-sm font-bold text-white bg-purple-600 rounded-lg hover:bg-purple-700">
+                    保存设置
+                  </button>
+                </div>
+              </div>
+
               {/* 政策文件来源 */}
               <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl p-6 text-white">
                 <h3 className="text-lg font-black mb-3 flex items-center gap-2">
@@ -1295,6 +1453,42 @@ const FinanceView: React.FC<FinanceViewProps> = ({ currentUser }) => {
                     </button>
                   </div>
 
+                  {/* 班级类型选择 */}
+                  <div>
+                    <label className="block text-sm font-bold text-slate-700 mb-2">
+                      🎓 班级类型
+                      <span className="text-xs text-slate-400 font-normal ml-2">不同班级收费标准不同</span>
+                    </label>
+                    <div className="grid grid-cols-3 gap-2">
+                      {[
+                        { value: 'standard', label: '标准班', desc: '常规课程', color: 'blue' },
+                        { value: 'nursery', label: '优苗班', desc: '不足两岁', color: 'emerald' },
+                        { value: 'music', label: '音乐班', desc: '特色课程', color: 'purple' },
+                      ].map(type => (
+                        <button
+                          key={type.value}
+                          onClick={() => setPaymentForm(prev => ({ ...prev, classType: type.value as any }))}
+                          className={`p-3 rounded-xl border-2 text-center transition-all ${
+                            paymentForm.classType === type.value
+                              ? type.color === 'blue' ? 'border-blue-500 bg-blue-50'
+                                : type.color === 'emerald' ? 'border-emerald-500 bg-emerald-50'
+                                : 'border-purple-500 bg-purple-50'
+                              : 'border-slate-200 bg-white hover:border-slate-300'
+                          }`}
+                        >
+                          <span className={`font-bold text-sm ${
+                            paymentForm.classType === type.value
+                              ? type.color === 'blue' ? 'text-blue-700'
+                                : type.color === 'emerald' ? 'text-emerald-700'
+                                : 'text-purple-700'
+                              : 'text-slate-700'
+                          }`}>{type.label}</span>
+                          <p className="text-[10px] text-slate-500 mt-0.5">{type.desc}</p>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
                   {/* 是否新生 */}
                   <div className="flex items-center gap-3 p-3 bg-amber-50 rounded-xl border border-amber-200">
                     <input
@@ -1304,16 +1498,17 @@ const FinanceView: React.FC<FinanceViewProps> = ({ currentUser }) => {
                       onChange={e => setPaymentForm(prev => ({
                         ...prev,
                         isNewStudent: e.target.checked,
-                        selectedFees: {
-                          ...prev.selectedFees,
-                          agency: e.target.checked,  // 新生自动选中代办费
-                          bedding: e.target.checked, // 新生自动选中床品费
-                        }
+                        beddingItems: e.target.checked 
+                          ? { outerSet: false, innerSet: false, fullSet: true }
+                          : { outerSet: false, innerSet: false, fullSet: false },
+                        agencyItems: e.target.checked
+                          ? { itemFee: true, schoolBag: true, uniform: true }
+                          : { itemFee: false, schoolBag: false, uniform: false },
                       }))}
                       className="w-4 h-4 rounded text-amber-600"
                     />
                     <label htmlFor="isNewStudent" className="text-sm font-bold text-amber-800 cursor-pointer">
-                      新生入园（自动包含代办费+床品费）
+                      新生入园（自动选中全套代办+床品）
                     </label>
                   </div>
 
@@ -1367,45 +1562,92 @@ const FinanceView: React.FC<FinanceViewProps> = ({ currentUser }) => {
                       ))}
                     </div>
 
-                    {/* 一次性费用 */}
-                    <p className="text-xs text-slate-500 mb-2">🎁 一次性费用（新生入园时缴纳）</p>
-                    <div className="grid grid-cols-2 gap-2">
+                    {/* 代办费细项 - 可单独选择 */}
+                    <p className="text-xs text-slate-500 mb-2">📦 代办费（可单独选购）</p>
+                    <div className="grid grid-cols-3 gap-2 mb-4">
                       {[
-                        { value: 'agency', label: '代办费', desc: '书本/学习用品', icon: Tag, color: 'purple' },
-                        { value: 'bedding', label: '床品费', desc: '床上用品一套', icon: FileText, color: 'amber' },
-                      ].map(type => (
+                        { key: 'itemFee', label: '项项费', price: 700, desc: '大班400' },
+                        { key: 'schoolBag', label: '书包', price: 120, desc: '入园书包' },
+                        { key: 'uniform', label: '校服', price: 280, desc: '园服一套' },
+                      ].map(item => (
                         <label
-                          key={type.value}
-                          className={`p-3 rounded-xl border-2 cursor-pointer transition-all flex items-center gap-3 ${
-                            paymentForm.selectedFees[type.value as keyof typeof paymentForm.selectedFees]
-                              ? type.color === 'purple' ? 'border-purple-500 bg-purple-50' : 'border-amber-500 bg-amber-50'
+                          key={item.key}
+                          className={`p-3 rounded-xl border-2 cursor-pointer transition-all ${
+                            paymentForm.agencyItems[item.key as keyof typeof paymentForm.agencyItems]
+                              ? 'border-purple-500 bg-purple-50'
                               : 'border-slate-200 bg-white hover:border-slate-300'
                           }`}
                         >
-                          <input
-                            type="checkbox"
-                            checked={paymentForm.selectedFees[type.value as keyof typeof paymentForm.selectedFees]}
-                            onChange={e => setPaymentForm(prev => ({
-                              ...prev,
-                              selectedFees: { ...prev.selectedFees, [type.value]: e.target.checked }
-                            }))}
-                            className={`w-4 h-4 rounded ${type.color === 'purple' ? 'text-purple-600' : 'text-amber-600'}`}
-                          />
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2">
-                              <type.icon className={`w-4 h-4 ${
-                                paymentForm.selectedFees[type.value as keyof typeof paymentForm.selectedFees]
-                                  ? type.color === 'purple' ? 'text-purple-600' : 'text-amber-600'
-                                  : 'text-slate-400'
-                              }`} />
-                              <span className={`text-sm font-bold ${
-                                paymentForm.selectedFees[type.value as keyof typeof paymentForm.selectedFees]
-                                  ? type.color === 'purple' ? 'text-purple-700' : 'text-amber-700'
-                                  : 'text-slate-600'
-                              }`}>{type.label}</span>
-                            </div>
-                            <p className="text-[10px] text-slate-400 mt-0.5">{type.desc}</p>
+                          <div className="flex items-center gap-2 mb-1">
+                            <input
+                              type="checkbox"
+                              checked={paymentForm.agencyItems[item.key as keyof typeof paymentForm.agencyItems]}
+                              onChange={e => setPaymentForm(prev => ({
+                                ...prev,
+                                agencyItems: { ...prev.agencyItems, [item.key]: e.target.checked }
+                              }))}
+                              className="w-3 h-3 rounded text-purple-600"
+                            />
+                            <span className={`text-xs font-bold ${
+                              paymentForm.agencyItems[item.key as keyof typeof paymentForm.agencyItems]
+                                ? 'text-purple-700' : 'text-slate-600'
+                            }`}>{item.label}</span>
                           </div>
+                          <p className="text-lg font-black text-purple-600">¥{item.price}</p>
+                          <p className="text-[10px] text-slate-400">{item.desc}</p>
+                        </label>
+                      ))}
+                    </div>
+
+                    {/* 床品细项 - 可单独选择 */}
+                    <p className="text-xs text-slate-500 mb-2">🛏️ 床品费（可单独选购）</p>
+                    <div className="grid grid-cols-3 gap-2">
+                      {[
+                        { key: 'outerSet', label: '外皮套装', price: 268, desc: '外投170+被芯43+行李袋55' },
+                        { key: 'innerSet', label: '内芯三件', price: 160, desc: '床垫/枕芯/被芯' },
+                        { key: 'fullSet', label: '床品全套', price: 428, desc: '外皮+内芯完整套装' },
+                      ].map(item => (
+                        <label
+                          key={item.key}
+                          className={`p-3 rounded-xl border-2 cursor-pointer transition-all ${
+                            paymentForm.beddingItems[item.key as keyof typeof paymentForm.beddingItems]
+                              ? 'border-amber-500 bg-amber-50'
+                              : 'border-slate-200 bg-white hover:border-slate-300'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2 mb-1">
+                            <input
+                              type="checkbox"
+                              checked={paymentForm.beddingItems[item.key as keyof typeof paymentForm.beddingItems]}
+                              onChange={e => {
+                                // 选择全套时，取消外皮和内芯的单独选择
+                                if (item.key === 'fullSet' && e.target.checked) {
+                                  setPaymentForm(prev => ({
+                                    ...prev,
+                                    beddingItems: { outerSet: false, innerSet: false, fullSet: true }
+                                  }));
+                                } else if ((item.key === 'outerSet' || item.key === 'innerSet') && e.target.checked) {
+                                  // 选择单独项时，取消全套选择
+                                  setPaymentForm(prev => ({
+                                    ...prev,
+                                    beddingItems: { ...prev.beddingItems, [item.key]: true, fullSet: false }
+                                  }));
+                                } else {
+                                  setPaymentForm(prev => ({
+                                    ...prev,
+                                    beddingItems: { ...prev.beddingItems, [item.key]: e.target.checked }
+                                  }));
+                                }
+                              }}
+                              className="w-3 h-3 rounded text-amber-600"
+                            />
+                            <span className={`text-xs font-bold ${
+                              paymentForm.beddingItems[item.key as keyof typeof paymentForm.beddingItems]
+                                ? 'text-amber-700' : 'text-slate-600'
+                            }`}>{item.label}</span>
+                          </div>
+                          <p className="text-lg font-black text-amber-600">¥{item.price}</p>
+                          <p className="text-[10px] text-slate-400 leading-tight">{item.desc}</p>
                         </label>
                       ))}
                     </div>
@@ -1415,111 +1657,196 @@ const FinanceView: React.FC<FinanceViewProps> = ({ currentUser }) => {
                   <div>
                     <label className="block text-sm font-bold text-slate-700 mb-2">
                       缴费周期
-                      <span className="text-xs text-slate-400 font-normal ml-2">选择缴费时长</span>
+                      <span className="text-xs text-slate-400 font-normal ml-2">选择缴费时长（新生首月可按天/半月）</span>
                     </label>
-                    <div className="grid grid-cols-3 gap-3">
+                    <div className="grid grid-cols-5 gap-2">
                       {[
-                        { value: 'monthly', label: '按月缴', months: 1, desc: '每月缴费', icon: '📅', color: 'blue' },
-                        { value: 'semester', label: '半年缴', months: 6, desc: '一次缴6个月', icon: '📆', color: 'emerald' },
-                        { value: 'yearly', label: '一年缴', months: 12, desc: '一次缴12个月', icon: '🗓️', color: 'purple' },
+                        { value: 'daily', label: '按天', desc: '新生首月', icon: '📋', color: 'rose' },
+                        { value: 'halfMonth', label: '半月', desc: '15天计费', icon: '📑', color: 'orange' },
+                        { value: 'monthly', label: '按月', desc: '整月缴费', icon: '📅', color: 'blue' },
+                        { value: 'semester', label: '半年', desc: '6个月', icon: '📆', color: 'emerald' },
+                        { value: 'yearly', label: '全年', desc: '12个月', icon: '🗓️', color: 'purple' },
                       ].map(period => (
                         <button
                           key={period.value}
                           onClick={() => setPaymentForm(prev => ({ ...prev, periodType: period.value as any }))}
-                          className={`p-4 rounded-xl border-2 text-center transition-all ${
+                          className={`p-3 rounded-xl border-2 text-center transition-all ${
                             paymentForm.periodType === period.value
-                              ? period.color === 'blue' 
-                                ? 'border-blue-500 bg-blue-50 shadow-lg shadow-blue-100' 
-                                : period.color === 'emerald' 
-                                  ? 'border-emerald-500 bg-emerald-50 shadow-lg shadow-emerald-100'
-                                  : 'border-purple-500 bg-purple-50 shadow-lg shadow-purple-100'
-                              : 'border-slate-200 bg-white hover:border-slate-300 hover:shadow-sm'
+                              ? period.color === 'blue' ? 'border-blue-500 bg-blue-50'
+                                : period.color === 'emerald' ? 'border-emerald-500 bg-emerald-50'
+                                : period.color === 'purple' ? 'border-purple-500 bg-purple-50'
+                                : period.color === 'rose' ? 'border-rose-500 bg-rose-50'
+                                : 'border-orange-500 bg-orange-50'
+                              : 'border-slate-200 bg-white hover:border-slate-300'
                           }`}
                         >
-                          <span className="text-2xl mb-1 block">{period.icon}</span>
-                          <span className={`font-black text-base block ${
+                          <span className="text-xl block">{period.icon}</span>
+                          <span className={`font-bold text-sm block ${
                             paymentForm.periodType === period.value 
-                              ? period.color === 'blue' ? 'text-blue-700' 
-                                : period.color === 'emerald' ? 'text-emerald-700' 
-                                : 'text-purple-700'
+                              ? period.color === 'blue' ? 'text-blue-700'
+                                : period.color === 'emerald' ? 'text-emerald-700'
+                                : period.color === 'purple' ? 'text-purple-700'
+                                : period.color === 'rose' ? 'text-rose-700'
+                                : 'text-orange-700'
                               : 'text-slate-700'
-                          }`}>
-                            {period.label}
-                          </span>
-                          <p className={`text-xs mt-1 ${
-                            paymentForm.periodType === period.value 
-                              ? period.color === 'blue' ? 'text-blue-600' 
-                                : period.color === 'emerald' ? 'text-emerald-600' 
-                                : 'text-purple-600'
-                              : 'text-slate-500'
-                          }`}>{period.desc}</p>
-                          <p className={`text-[10px] mt-0.5 font-bold ${
-                            paymentForm.periodType === period.value 
-                              ? 'text-slate-500' : 'text-slate-400'
-                          }`}>{period.months}个月</p>
+                          }`}>{period.label}</span>
+                          <p className="text-[10px] text-slate-500">{period.desc}</p>
                         </button>
                       ))}
                     </div>
+                    
+                    {/* 按天收费时显示天数输入 */}
+                    {paymentForm.periodType === 'daily' && (
+                      <div className="mt-3 p-3 bg-rose-50 rounded-xl border border-rose-200">
+                        <label className="flex items-center gap-3">
+                          <span className="text-sm font-bold text-rose-700">入园天数：</span>
+                          <input
+                            type="number"
+                            min={1}
+                            max={31}
+                            value={paymentForm.dailyDays}
+                            onChange={e => setPaymentForm(prev => ({ ...prev, dailyDays: Math.max(1, Math.min(31, Number(e.target.value))) }))}
+                            className="w-20 px-3 py-2 border border-rose-300 rounded-lg text-center font-bold text-rose-700"
+                          />
+                          <span className="text-sm text-rose-600">天</span>
+                        </label>
+                        <p className="text-[10px] text-rose-500 mt-1">* 按天收费 = (月保教费+月伙食费) ÷ 22 × 实际天数</p>
+                      </div>
+                    )}
                   </div>
 
                   {/* 费用明细与合计 */}
                   {(() => {
                     const fees = getStudentActualFees(selectedStudentForPayment);
-                    const months = paymentForm.periodType === 'monthly' ? 1 : paymentForm.periodType === 'semester' ? 6 : 12;
+                    
+                    // 根据班级类型获取对应费率（这里使用基础费率，实际可从配置获取）
+                    const classTypeMultiplier = paymentForm.classType === 'music' ? 1.2 : paymentForm.classType === 'nursery' ? 1.1 : 1;
+                    const tuitionBase = Math.round(fees.tuition * classTypeMultiplier);
+                    const mealBase = fees.meal;
+                    
+                    // 计算月份/天数因子
+                    let periodMultiplier = 1;
+                    let periodLabel = '1个月';
+                    if (paymentForm.periodType === 'daily') {
+                      periodMultiplier = paymentForm.dailyDays / 22;  // 按22天/月计算
+                      periodLabel = `${paymentForm.dailyDays}天`;
+                    } else if (paymentForm.periodType === 'halfMonth') {
+                      periodMultiplier = 0.5;
+                      periodLabel = '半月';
+                    } else if (paymentForm.periodType === 'semester') {
+                      periodMultiplier = 6;
+                      periodLabel = '6个月';
+                    } else if (paymentForm.periodType === 'yearly') {
+                      periodMultiplier = 12;
+                      periodLabel = '12个月';
+                    }
+                    
+                    // 计算代办费细项
+                    const agencyTotal = 
+                      (paymentForm.agencyItems.itemFee ? 700 : 0) +
+                      (paymentForm.agencyItems.schoolBag ? 120 : 0) +
+                      (paymentForm.agencyItems.uniform ? 280 : 0);
+                    
+                    // 计算床品费细项
+                    const beddingTotal = 
+                      paymentForm.beddingItems.fullSet ? 428 :
+                      (paymentForm.beddingItems.outerSet ? 268 : 0) +
+                      (paymentForm.beddingItems.innerSet ? 160 : 0);
                     
                     // 计算各项费用
                     const feeDetails = {
-                      tuition: paymentForm.selectedFees.tuition ? fees.tuition * months : 0,
-                      meal: paymentForm.selectedFees.meal ? fees.meal * months : 0,
-                      agency: paymentForm.selectedFees.agency ? fees.agency : 0,  // 一次性费用不乘月份
-                      bedding: paymentForm.selectedFees.bedding ? fees.bedding : 0, // 一次性费用不乘月份
+                      tuition: paymentForm.selectedFees.tuition ? Math.round(tuitionBase * periodMultiplier) : 0,
+                      meal: paymentForm.selectedFees.meal ? Math.round(mealBase * periodMultiplier) : 0,
+                      agency: agencyTotal,
+                      bedding: beddingTotal,
                     };
                     
-                    const standardAmount = feeDetails.tuition + feeDetails.meal + feeDetails.agency + feeDetails.bedding;
-                    
+                    // 计算优惠
                     let discountAmount = 0;
+                    let discountBase = 0;
+                    
+                    if (paymentForm.discountTarget === 'tuition') {
+                      // 仅保教费优惠
+                      discountBase = feeDetails.tuition;
+                    } else {
+                      // 总额优惠（默认）
+                      discountBase = feeDetails.tuition + feeDetails.meal;
+                    }
+                    
                     if (paymentForm.customAmount !== undefined && paymentForm.customAmount > 0) {
+                      const standardAmount = feeDetails.tuition + feeDetails.meal + feeDetails.agency + feeDetails.bedding;
                       discountAmount = standardAmount - paymentForm.customAmount;
                     } else if (paymentForm.discountType === 'percentage' && paymentForm.discountValue > 0) {
-                      discountAmount = Math.round(standardAmount * paymentForm.discountValue / 100);
+                      discountAmount = Math.round(discountBase * paymentForm.discountValue / 100);
                     } else if (paymentForm.discountType === 'fixed' && paymentForm.discountValue > 0) {
                       discountAmount = paymentForm.discountValue;
                     }
+                    
+                    const standardAmount = feeDetails.tuition + feeDetails.meal + feeDetails.agency + feeDetails.bedding;
                     const actualAmount = paymentForm.customAmount !== undefined && paymentForm.customAmount > 0
                       ? paymentForm.customAmount
                       : standardAmount - discountAmount;
 
-                    const hasAnyFee = Object.values(paymentForm.selectedFees).some(v => v);
+                    const hasAnyFee = paymentForm.selectedFees.tuition || paymentForm.selectedFees.meal || agencyTotal > 0 || beddingTotal > 0;
 
                     return (
                       <div className="bg-gradient-to-br from-slate-50 to-slate-100 rounded-xl p-4 border border-slate-200">
                         {/* 费用明细 */}
                         {hasAnyFee ? (
                           <>
-                            <p className="text-xs font-bold text-slate-500 mb-3">📋 费用明细</p>
+                            <p className="text-xs font-bold text-slate-500 mb-3">📋 费用明细 
+                              <span className="text-slate-400 font-normal ml-2">
+                                {paymentForm.classType === 'music' ? '（音乐班标准）' : paymentForm.classType === 'nursery' ? '（优苗班标准）' : '（标准班）'}
+                              </span>
+                            </p>
                             <div className="space-y-2 mb-4">
                               {paymentForm.selectedFees.tuition && (
                                 <div className="flex justify-between items-center text-sm">
-                                  <span className="text-slate-600">保教费 × {months}个月</span>
+                                  <span className="text-slate-600">保教费 × {periodLabel}</span>
                                   <span className="font-bold text-blue-600">¥{feeDetails.tuition.toLocaleString()}</span>
                                 </div>
                               )}
                               {paymentForm.selectedFees.meal && (
                                 <div className="flex justify-between items-center text-sm">
-                                  <span className="text-slate-600">伙食费 × {months}个月</span>
+                                  <span className="text-slate-600">伙食费 × {periodLabel}</span>
                                   <span className="font-bold text-emerald-600">¥{feeDetails.meal.toLocaleString()}</span>
                                 </div>
                               )}
-                              {paymentForm.selectedFees.agency && (
-                                <div className="flex justify-between items-center text-sm">
-                                  <span className="text-slate-600">代办费（一次性）</span>
-                                  <span className="font-bold text-purple-600">¥{feeDetails.agency.toLocaleString()}</span>
+                              {agencyTotal > 0 && (
+                                <div className="border-t border-slate-200 pt-2 space-y-1">
+                                  <p className="text-xs text-purple-600 font-bold">代办费明细：</p>
+                                  {paymentForm.agencyItems.itemFee && (
+                                    <div className="flex justify-between items-center text-sm pl-3">
+                                      <span className="text-slate-500">├ 项项费</span>
+                                      <span className="font-bold text-purple-600">¥700</span>
+                                    </div>
+                                  )}
+                                  {paymentForm.agencyItems.schoolBag && (
+                                    <div className="flex justify-between items-center text-sm pl-3">
+                                      <span className="text-slate-500">├ 书包</span>
+                                      <span className="font-bold text-purple-600">¥120</span>
+                                    </div>
+                                  )}
+                                  {paymentForm.agencyItems.uniform && (
+                                    <div className="flex justify-between items-center text-sm pl-3">
+                                      <span className="text-slate-500">└ 校服</span>
+                                      <span className="font-bold text-purple-600">¥280</span>
+                                    </div>
+                                  )}
                                 </div>
                               )}
-                              {paymentForm.selectedFees.bedding && (
-                                <div className="flex justify-between items-center text-sm">
-                                  <span className="text-slate-600">床品费（一次性）</span>
-                                  <span className="font-bold text-amber-600">¥{feeDetails.bedding.toLocaleString()}</span>
+                              {beddingTotal > 0 && (
+                                <div className="border-t border-slate-200 pt-2">
+                                  <div className="flex justify-between items-center text-sm">
+                                    <span className="text-slate-600">
+                                      床品费
+                                      <span className="text-xs text-slate-400 ml-1">
+                                        ({paymentForm.beddingItems.fullSet ? '全套' : 
+                                          [paymentForm.beddingItems.outerSet && '外皮套装', paymentForm.beddingItems.innerSet && '内芯三件'].filter(Boolean).join('+')})
+                                      </span>
+                                    </span>
+                                    <span className="font-bold text-amber-600">¥{beddingTotal.toLocaleString()}</span>
+                                  </div>
                                 </div>
                               )}
                             </div>
@@ -1532,7 +1859,12 @@ const FinanceView: React.FC<FinanceViewProps> = ({ currentUser }) => {
                               </div>
                               {discountAmount > 0 && (
                                 <div className="flex justify-between items-center">
-                                  <span className="text-amber-600">优惠金额</span>
+                                  <span className="text-amber-600">
+                                    优惠金额
+                                    <span className="text-xs ml-1">
+                                      ({paymentForm.discountTarget === 'tuition' ? '仅保教费' : '总额'})
+                                    </span>
+                                  </span>
                                   <span className="font-bold text-amber-600">-¥{discountAmount.toLocaleString()}</span>
                                 </div>
                               )}
@@ -1577,11 +1909,42 @@ const FinanceView: React.FC<FinanceViewProps> = ({ currentUser }) => {
                     
                     {paymentForm.hasDiscount && (
                       <div className="space-y-3">
+                        {/* 优惠应用范围 */}
+                        <div className="bg-white rounded-lg p-3 border border-amber-200">
+                          <p className="text-xs font-bold text-amber-700 mb-2">📍 优惠应用范围</p>
+                          <div className="grid grid-cols-2 gap-2">
+                            <button
+                              onClick={() => setPaymentForm(prev => ({ ...prev, discountTarget: 'tuition' }))}
+                              className={`p-2 rounded-lg text-sm font-bold transition-all ${
+                                paymentForm.discountTarget === 'tuition'
+                                  ? 'bg-blue-500 text-white'
+                                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                              }`}
+                            >
+                              仅保教费优惠
+                            </button>
+                            <button
+                              onClick={() => setPaymentForm(prev => ({ ...prev, discountTarget: 'total' }))}
+                              className={`p-2 rounded-lg text-sm font-bold transition-all ${
+                                paymentForm.discountTarget === 'total'
+                                  ? 'bg-emerald-500 text-white'
+                                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                              }`}
+                            >
+                              保教+伙食优惠
+                            </button>
+                          </div>
+                          <p className="text-[10px] text-amber-600 mt-2">
+                            💡 实际收费中大部分优惠针对保教费，选择"仅保教费"可保持伙食费原价
+                          </p>
+                        </div>
+
+                        {/* 优惠类型 */}
                         <div className="grid grid-cols-3 gap-2">
                           {[
                             { value: 'percentage', label: '百分比' },
                             { value: 'fixed', label: '固定金额' },
-                            { value: 'custom', label: '自定义金额' },
+                            { value: 'custom', label: '自定义总价' },
                           ].map(type => (
                             <button
                               key={type.value}
@@ -1748,13 +2111,18 @@ const FinanceView: React.FC<FinanceViewProps> = ({ currentUser }) => {
                   setSelectedStudentForPayment(null);
                   setSearchTerm('');
                   setPaymentForm({
-                    selectedFees: { tuition: true, meal: true, agency: false, bedding: false },
+                    selectedFees: { tuition: true, meal: true },
+                    agencyItems: { itemFee: false, schoolBag: false, uniform: false },
+                    beddingItems: { outerSet: false, innerSet: false, fullSet: false },
+                    classType: 'standard',
                     periodType: 'monthly',
+                    dailyDays: 15,
                     paymentMethod: 'wechat',
                     hasDiscount: false,
                     discountType: '',
                     discountValue: 0,
                     discountReason: '',
+                    discountTarget: 'total',
                     customAmount: undefined,
                     notes: '',
                     isNewStudent: false,
@@ -1764,47 +2132,72 @@ const FinanceView: React.FC<FinanceViewProps> = ({ currentUser }) => {
               >
                 取消
               </button>
-              {selectedStudentForPayment && Object.values(paymentForm.selectedFees).some(v => v) && (
+              {selectedStudentForPayment && (paymentForm.selectedFees.tuition || paymentForm.selectedFees.meal || 
+                Object.values(paymentForm.agencyItems).some(v => v) || Object.values(paymentForm.beddingItems).some(v => v)) && (
                 <button
                   onClick={() => {
-                    // 为每个选中的费用类型创建缴费记录
-                    const selectedFeeTypes = Object.entries(paymentForm.selectedFees)
-                      .filter(([_, selected]) => selected)
-                      .map(([type]) => type as 'tuition' | 'meal' | 'agency' | 'bedding');
+                    // 构建综合缴费记录
+                    const feeTypes: string[] = [];
+                    if (paymentForm.selectedFees.tuition) feeTypes.push('tuition');
+                    if (paymentForm.selectedFees.meal) feeTypes.push('meal');
+                    if (Object.values(paymentForm.agencyItems).some(v => v)) feeTypes.push('agency');
+                    if (Object.values(paymentForm.beddingItems).some(v => v)) feeTypes.push('bedding');
                     
                     const newPayments: FeePayment[] = [];
                     
-                    selectedFeeTypes.forEach(feeType => {
+                    // 简化处理：创建一个综合缴费记录
+                    if (paymentForm.selectedFees.tuition) {
+                      const periodType = paymentForm.periodType as 'daily' | 'halfMonth' | 'monthly' | 'semester' | 'yearly';
                       const payment = createPayment(
                         selectedStudentForPayment,
-                        feeType,
-                        paymentForm.periodType,
+                        'tuition',
+                        periodType === 'daily' || periodType === 'halfMonth' ? 'monthly' : periodType,
                         {
                           paymentDate: new Date().toISOString().slice(0, 10),
                           paymentMethod: paymentForm.paymentMethod,
                           operator: currentUser.name,
-                          notes: paymentForm.notes + (selectedFeeTypes.length > 1 ? ` [综合缴费-${selectedFeeTypes.length}项]` : ''),
-                          // 优惠按比例分摊到各项费用（简化处理：仅应用到周期性费用）
-                          discountType: paymentForm.hasDiscount && ['tuition', 'meal'].includes(feeType) && paymentForm.discountType ? paymentForm.discountType as any : undefined,
-                          discountValue: paymentForm.hasDiscount && ['tuition', 'meal'].includes(feeType) ? paymentForm.discountValue : undefined,
-                          discountReason: paymentForm.hasDiscount && ['tuition', 'meal'].includes(feeType) ? paymentForm.discountReason : undefined,
+                          notes: paymentForm.notes + (feeTypes.length > 1 ? ` [综合缴费-${feeTypes.length}项]` : ''),
+                          discountType: paymentForm.hasDiscount && paymentForm.discountType ? paymentForm.discountType as any : undefined,
+                          discountValue: paymentForm.hasDiscount ? paymentForm.discountValue : undefined,
+                          discountReason: paymentForm.hasDiscount ? paymentForm.discountReason : undefined,
                         }
                       );
                       newPayments.push(payment);
-                    });
+                    }
+                    
+                    if (paymentForm.selectedFees.meal) {
+                      const periodType = paymentForm.periodType as 'daily' | 'halfMonth' | 'monthly' | 'semester' | 'yearly';
+                      const payment = createPayment(
+                        selectedStudentForPayment,
+                        'meal',
+                        periodType === 'daily' || periodType === 'halfMonth' ? 'monthly' : periodType,
+                        {
+                          paymentDate: new Date().toISOString().slice(0, 10),
+                          paymentMethod: paymentForm.paymentMethod,
+                          operator: currentUser.name,
+                          notes: paymentForm.notes,
+                        }
+                      );
+                      newPayments.push(payment);
+                    }
                     
                     setPayments(prev => [...newPayments, ...prev]);
                     setIsPaymentModalOpen(false);
                     setSelectedStudentForPayment(null);
                     setSearchTerm('');
                     setPaymentForm({
-                      selectedFees: { tuition: true, meal: true, agency: false, bedding: false },
+                      selectedFees: { tuition: true, meal: true },
+                      agencyItems: { itemFee: false, schoolBag: false, uniform: false },
+                      beddingItems: { outerSet: false, innerSet: false, fullSet: false },
+                      classType: 'standard',
                       periodType: 'monthly',
+                      dailyDays: 15,
                       paymentMethod: 'wechat',
                       hasDiscount: false,
                       discountType: '',
                       discountValue: 0,
                       discountReason: '',
+                      discountTarget: 'total',
                       customAmount: undefined,
                       notes: '',
                       isNewStudent: false,
