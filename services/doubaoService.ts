@@ -88,7 +88,7 @@ async function callDoubaoAPI(
     ],
     temperature,
     max_completion_tokens: maxTokens,
-    reasoning_effort: "medium",
+    // reasoning_effort: "low" 可以加速生成，但质量可能略有下降
   };
 
   // 如果需要 JSON 格式响应
@@ -121,50 +121,15 @@ async function callDoubaoAPI(
 const _internalGenerateWeeklyRecipe = async (grade: CampusGrade, headcount: number) => {
   const campusFeatures = getCampusFeatures(grade);
   
-  const systemPrompt = `你是金星教育集团的高级营养师。请为【${CAMPUS_CONFIG[grade].name}】生成周一至周五的幼儿园全周食谱。
-  
-  ${campusFeatures}
+  const systemPrompt = `幼儿园营养师，为【${CAMPUS_CONFIG[grade].name}】生成周一至周五食谱。${campusFeatures}
+返回JSON格式：{"days":[{"day":"周一","meals":{"breakfast":{"dishName":"菜名","ingredients":[{"name":"食材","perPersonGrams":数字}]},"morningSnack":{"dishName":"","ingredients":[]},"lunch":{"mainDish":{},"sideDish":{},"soup":{},"staple":{}},"milkSnack":{"dishName":"纯牛奶","ingredients":[{"name":"牛奶","perPersonGrams":250}]},"afternoonSnack":{},"dinner":{}}}],"nutritionSummary":{"avgEnergy":1350,"avgProtein":45,"varietyCount":30}}
+要求：每道菜含食材和克重，五天不重复。`;
 
-  【核心要求】
-  1. 必须严格返回 JSON 格式，结构如下：
-  {
-    "days": [
-      {
-        "day": "周一",
-        "meals": {
-          "breakfast": { "dishName": "菜名", "ingredients": [{"name": "食材", "perPersonGrams": 数字}] },
-          "morningFruitSnack": { "dishName": "菜名", "ingredients": [...] },
-          "morningSnack": { "dishName": "菜名", "ingredients": [...] },
-          "lunch": {
-            "mainDish": { "dishName": "菜名", "ingredients": [...] },
-            "sideDish": { "dishName": "菜名", "ingredients": [...] },
-            "soup": { "dishName": "菜名", "ingredients": [...] },
-            "staple": { "dishName": "菜名", "ingredients": [...] }
-          },
-          "milkSnack": { "dishName": "纯牛奶", "ingredients": [{"name": "牛奶", "perPersonGrams": 250}] },
-          "afternoonSnack": { "dishName": "菜名", "ingredients": [...] },
-          "dinner": { "dishName": "菜名", "ingredients": [...] }
-        }
-      }
-    ],
-    "nutritionSummary": { "avgEnergy": 1350, "avgProtein": 45, "varietyCount": 30 }
-  }
-  
-  2. 每道菜的 ingredients 必须包含该菜品的所有主要食材，每种食材包含 name 和 perPersonGrams。
-  3. 五天的每一餐都要不同，不能重复同样的菜品。
-  4. 为 ${headcount} 位幼儿进行规划。
-
-  【营养标准】
-  - 幼儿每日能量需求：1200-1400 kcal
-  - 蛋白质：35-45g
-  - 钙：600-800mg
-  - 铁：9-12mg`;
-
-  const userMessage = `请为 ${CAMPUS_CONFIG[grade].name} 生成本周（周一至周五）的详细食谱，包含每道菜的食材和克重。只返回 JSON，不要其他内容。`;
+  const userMessage = `生成${CAMPUS_CONFIG[grade].name}本周食谱(${headcount}人)，只返回JSON。`;
 
   const responseText = await callDoubaoAPI(systemPrompt, userMessage, {
-    temperature: 0.8,
-    maxTokens: 8192,
+    temperature: 0.6,  // 降低温度以加速生成
+    maxTokens: 4096,   // 减少最大token数
     responseFormat: 'json'
   });
 
