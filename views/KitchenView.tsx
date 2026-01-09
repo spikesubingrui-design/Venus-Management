@@ -47,6 +47,10 @@ const KitchenView: React.FC<KitchenViewProps> = ({ currentUser }) => {
   const [pendingAction, setPendingAction] = useState<'CONFIRM' | 'DELETE' | null>(null);
   const [showSuccessToast, setShowSuccessToast] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
+  
+  // 历史记录详情查看
+  const [selectedHistoryRecord, setSelectedHistoryRecord] = useState<WeeklyRecipeRecord | null>(null);
+  const [historyDetailDayIdx, setHistoryDetailDayIdx] = useState(0);
 
   useEffect(() => {
     const savedHistory = localStorage.getItem('kt_kitchen_history_v2');
@@ -605,7 +609,11 @@ const KitchenView: React.FC<KitchenViewProps> = ({ currentUser }) => {
             </div>
           ) : (
             history.map((rec) => (
-              <div key={rec.id} className="bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-sm hover:shadow-xl transition-all group">
+              <div 
+                key={rec.id} 
+                className="bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-sm hover:shadow-xl transition-all group cursor-pointer"
+                onClick={() => { setSelectedHistoryRecord(rec); setHistoryDetailDayIdx(0); }}
+              >
                 <div className="flex justify-between items-start mb-4">
                   <span className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest ${
                     rec.grade === 'PHUI' ? 'bg-blue-100 text-blue-700' :
@@ -615,7 +623,8 @@ const KitchenView: React.FC<KitchenViewProps> = ({ currentUser }) => {
                   }`}>
                     {CAMPUS_CONFIG[rec.grade]?.name || rec.grade}
                   </span>
-                  <button onClick={() => {
+                  <button onClick={(e) => {
+                     e.stopPropagation();
                      const updated = history.filter(h => h.id !== rec.id);
                      setHistory(updated);
                      localStorage.setItem('kt_kitchen_history_v2', JSON.stringify(updated));
@@ -905,6 +914,196 @@ const KitchenView: React.FC<KitchenViewProps> = ({ currentUser }) => {
         </div>
       )}
       
+      {/* 历史记录详情弹窗 */}
+      {selectedHistoryRecord && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-[2rem] w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+            {/* 头部 */}
+            <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50">
+              <div className="flex items-center gap-4">
+                <div className={`p-3 rounded-2xl ${
+                  selectedHistoryRecord.grade === 'PHUI' ? 'bg-blue-100' :
+                  selectedHistoryRecord.grade === 'HIGH_END' ? 'bg-purple-100' :
+                  selectedHistoryRecord.grade === 'JIU_YOU' ? 'bg-amber-100' :
+                  'bg-teal-100'
+                }`}>
+                  <Utensils className={`w-6 h-6 ${
+                    selectedHistoryRecord.grade === 'PHUI' ? 'text-blue-600' :
+                    selectedHistoryRecord.grade === 'HIGH_END' ? 'text-purple-600' :
+                    selectedHistoryRecord.grade === 'JIU_YOU' ? 'text-amber-600' :
+                    'text-teal-600'
+                  }`} />
+                </div>
+                <div>
+                  <h3 className="font-black text-xl text-slate-800">
+                    {CAMPUS_CONFIG[selectedHistoryRecord.grade]?.name} · {selectedHistoryRecord.weekRange || '周食谱'}
+                  </h3>
+                  <p className="text-sm text-slate-500 flex items-center gap-2 mt-1">
+                    <Calendar className="w-4 h-4" />
+                    {new Date(selectedHistoryRecord.createdAt).toLocaleDateString()} · {selectedHistoryRecord.headcount}人用餐
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setSelectedHistoryRecord(null)}
+                className="p-2 hover:bg-slate-200 rounded-full transition-colors"
+              >
+                <span className="text-2xl text-slate-400">×</span>
+              </button>
+            </div>
+
+            {/* 营养汇总 */}
+            {selectedHistoryRecord.nutritionSummary && (
+              <div className="px-6 py-4 bg-gradient-to-r from-emerald-50 to-teal-50 border-b border-emerald-100 grid grid-cols-3 gap-4">
+                <div className="text-center">
+                  <p className="text-xs text-emerald-600 font-bold">日均能量</p>
+                  <p className="text-xl font-black text-emerald-800">{selectedHistoryRecord.nutritionSummary.avgEnergy} <span className="text-sm font-normal">kcal</span></p>
+                </div>
+                <div className="text-center">
+                  <p className="text-xs text-emerald-600 font-bold">日均蛋白</p>
+                  <p className="text-xl font-black text-emerald-800">{selectedHistoryRecord.nutritionSummary.avgProtein} <span className="text-sm font-normal">g</span></p>
+                </div>
+                <div className="text-center">
+                  <p className="text-xs text-emerald-600 font-bold">食材种类</p>
+                  <p className="text-xl font-black text-emerald-800">{selectedHistoryRecord.nutritionSummary.varietyCount} <span className="text-sm font-normal">种</span></p>
+                </div>
+              </div>
+            )}
+
+            {/* 日期选择 */}
+            <div className="px-6 py-4 border-b border-slate-100 flex gap-2">
+              {selectedHistoryRecord.days?.map((d, i) => (
+                <button 
+                  key={i} 
+                  onClick={() => setHistoryDetailDayIdx(i)} 
+                  className={`px-4 py-2 rounded-xl font-bold text-sm transition-all ${
+                    historyDetailDayIdx === i 
+                      ? 'bg-amber-600 text-white shadow-lg' 
+                      : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+                  }`}
+                >
+                  {d.day || `第${i+1}天`}
+                </button>
+              ))}
+            </div>
+
+            {/* 食谱详情 */}
+            <div className="flex-1 overflow-y-auto p-6">
+              {selectedHistoryRecord.days?.[historyDetailDayIdx] && (
+                <div className="space-y-4">
+                  {/* 渲染每餐详情 */}
+                  {(() => {
+                    const day = selectedHistoryRecord.days[historyDetailDayIdx];
+                    const renderMealDetail = (label: string, dish: MealDish | undefined, icon: React.ReactNode, bgColor: string) => {
+                      if (!dish || !dish.dishName || dish.dishName === '待定') return null;
+                      return (
+                        <div className={`${bgColor} p-4 rounded-2xl`}>
+                          <div className="flex items-center gap-2 mb-2">
+                            {icon}
+                            <span className="text-xs font-black text-slate-500 uppercase tracking-widest">{label}</span>
+                          </div>
+                          <p className="font-bold text-slate-800 text-lg mb-2">{dish.dishName}</p>
+                          <div className="flex flex-wrap gap-2">
+                            {dish.ingredients?.map((ing, idx) => (
+                              <span key={idx} className="bg-white px-3 py-1 rounded-lg text-sm">
+                                <span className="text-slate-700">{ing.name}</span>
+                                <span className="text-amber-600 font-bold ml-1">{ing.perPersonGrams}g</span>
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    };
+
+                    return (
+                      <>
+                        {renderMealDetail('元气早餐', day.meals?.breakfast, <Wheat className="w-4 h-4 text-amber-500" />, 'bg-amber-50')}
+                        
+                        {day.meals?.morningFruitSnack && renderMealDetail('水果加餐', day.meals.morningFruitSnack, <Apple className="w-4 h-4 text-red-400" />, 'bg-red-50')}
+                        
+                        {renderMealDetail('早点水果', day.meals?.morningSnack, <Apple className="w-4 h-4 text-green-500" />, 'bg-green-50')}
+                        
+                        {/* 午餐组合 */}
+                        <div className="border-2 border-dashed border-slate-200 rounded-2xl p-4 space-y-3">
+                          <p className="text-center text-xs font-black text-slate-400 uppercase tracking-widest">正式午餐组合</p>
+                          {renderMealDetail('午餐主菜', day.meals?.lunch?.mainDish, <Beef className="w-4 h-4 text-rose-500" />, 'bg-rose-50')}
+                          {renderMealDetail('午餐副菜', day.meals?.lunch?.sideDish, <Utensils className="w-4 h-4 text-slate-400" />, 'bg-slate-50')}
+                          {renderMealDetail('午餐汤品', day.meals?.lunch?.soup, <Utensils className="w-4 h-4 text-blue-400" />, 'bg-blue-50')}
+                          {renderMealDetail('午餐主食', day.meals?.lunch?.staple, <Wheat className="w-4 h-4 text-amber-400" />, 'bg-amber-50')}
+                        </div>
+                        
+                        {renderMealDetail('牛奶加餐', day.meals?.milkSnack, <Milk className="w-4 h-4 text-slate-400" />, 'bg-slate-50')}
+                        
+                        {renderMealDetail('午后点心', day.meals?.afternoonSnack, <Apple className="w-4 h-4 text-orange-400" />, 'bg-orange-50')}
+                        
+                        {renderMealDetail('营养晚餐', day.meals?.dinner, <Utensils className="w-4 h-4 text-purple-400" />, 'bg-purple-50')}
+
+                        {/* 当日营养 */}
+                        {day.dailyNutrition && (
+                          <div className="mt-6 p-4 bg-gradient-to-r from-emerald-50 to-teal-50 rounded-2xl">
+                            <h4 className="font-bold text-emerald-700 mb-3 flex items-center gap-2">
+                              <Flame className="w-4 h-4 text-orange-500" />
+                              {day.day}营养分析
+                            </h4>
+                            <div className="grid grid-cols-3 md:grid-cols-6 gap-2 text-center">
+                              <div className="bg-white/60 p-2 rounded-xl">
+                                <p className="text-[10px] text-slate-500">能量</p>
+                                <p className="font-bold text-slate-700">{day.dailyNutrition.totalEnergy}<span className="text-[10px] ml-0.5">kcal</span></p>
+                              </div>
+                              <div className="bg-white/60 p-2 rounded-xl">
+                                <p className="text-[10px] text-slate-500">蛋白质</p>
+                                <p className="font-bold text-slate-700">{day.dailyNutrition.totalProtein}<span className="text-[10px] ml-0.5">g</span></p>
+                              </div>
+                              <div className="bg-white/60 p-2 rounded-xl">
+                                <p className="text-[10px] text-slate-500">碳水</p>
+                                <p className="font-bold text-slate-700">{day.dailyNutrition.totalCarbs}<span className="text-[10px] ml-0.5">g</span></p>
+                              </div>
+                              <div className="bg-white/60 p-2 rounded-xl">
+                                <p className="text-[10px] text-slate-500">脂肪</p>
+                                <p className="font-bold text-slate-700">{day.dailyNutrition.totalFat}<span className="text-[10px] ml-0.5">g</span></p>
+                              </div>
+                              <div className="bg-white/60 p-2 rounded-xl">
+                                <p className="text-[10px] text-slate-500">钙</p>
+                                <p className="font-bold text-slate-700">{day.dailyNutrition.totalCalcium}<span className="text-[10px] ml-0.5">mg</span></p>
+                              </div>
+                              <div className="bg-white/60 p-2 rounded-xl">
+                                <p className="text-[10px] text-slate-500">铁</p>
+                                <p className="font-bold text-slate-700">{day.dailyNutrition.totalIron}<span className="text-[10px] ml-0.5">mg</span></p>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    );
+                  })()}
+                </div>
+              )}
+            </div>
+
+            {/* 底部操作 */}
+            <div className="p-4 border-t border-slate-100 bg-slate-50 flex gap-3">
+              <button
+                onClick={() => setSelectedHistoryRecord(null)}
+                className="flex-1 px-6 py-3 bg-slate-200 text-slate-700 rounded-xl font-bold hover:bg-slate-300 transition-colors"
+              >
+                关闭
+              </button>
+              <button
+                onClick={() => {
+                  setCurrentRecord(selectedHistoryRecord);
+                  setSelectedHistoryRecord(null);
+                  setViewMode('PLANNER');
+                }}
+                className="flex-1 px-6 py-3 bg-amber-600 text-white rounded-xl font-bold hover:bg-amber-700 transition-colors flex items-center justify-center gap-2"
+              >
+                <Sparkles className="w-4 h-4" />
+                复用此食谱
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* 确认上传弹窗 */}
       {showConfirmModal && currentRecord && (
         <ConfirmUploadModal
