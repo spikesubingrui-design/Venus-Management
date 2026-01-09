@@ -1207,38 +1207,6 @@ const FinanceView: React.FC<FinanceViewProps> = ({ currentUser }) => {
                 </div>
               </div>
 
-              {/* 当前园所配置 */}
-              <div>
-                <h4 className="font-black text-slate-800 mb-4 flex items-center gap-2">
-                  <Settings className="w-5 h-5 text-slate-600" />
-                  当前园所收费配置（{campus}）
-                </h4>
-                <div className="grid md:grid-cols-2 gap-4">
-                  {feeConfigs.map(config => (
-                    <div key={config.id} className="bg-slate-50 rounded-xl p-5 border border-slate-200">
-                      <div className="flex items-center justify-between mb-3">
-                        <span className="font-bold text-slate-800">{config.name}</span>
-                        <span className={`px-2 py-1 rounded-full text-xs font-bold ${
-                          config.type === 'tuition' ? 'bg-blue-100 text-blue-700' : 'bg-emerald-100 text-emerald-700'
-                        }`}>
-                          {config.type === 'tuition' ? '保教费' : '伙食费'}
-                        </span>
-                      </div>
-                      <p className="text-3xl font-black text-slate-700">
-                        ¥{config.monthlyAmount}
-                        <span className="text-sm font-normal text-slate-500">/月</span>
-                      </p>
-                      <p className="text-xs text-slate-500 mt-2">
-                        日均：¥{config.dailyRate?.toFixed(2)} · {config.description}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <p className="text-xs text-slate-400 text-center">
-                * 退费规则由集团统一制定，如需调整请联系集团财务部
-              </p>
             </div>
           )}
         </div>
