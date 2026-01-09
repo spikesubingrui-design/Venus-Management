@@ -4,7 +4,7 @@ import {
   Utensils, Sparkles, Loader2, CheckCircle2,
   History, Save, ChevronRight, Trash2, Calendar, Scale, 
   Apple, Flame, Beef, Wheat, Milk, Info, Plus, Lightbulb, AlertTriangle,
-  BarChart3, Building2, Users, TrendingUp, Lock, Upload
+  BarChart3, Building2, Users, TrendingUp, Lock, Upload, Edit
 } from 'lucide-react';
 import { generateWeeklyRecipe } from '../services/geminiService';
 import { WeeklyRecipeRecord, CampusGrade, DailyRecipe, MealDish, CAMPUS_CONFIG, User } from '../types';
@@ -48,9 +48,10 @@ const KitchenView: React.FC<KitchenViewProps> = ({ currentUser }) => {
   const [showSuccessToast, setShowSuccessToast] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
   
-  // 历史记录详情查看
+  // 历史记录详情查看与编辑
   const [selectedHistoryRecord, setSelectedHistoryRecord] = useState<WeeklyRecipeRecord | null>(null);
   const [historyDetailDayIdx, setHistoryDetailDayIdx] = useState(0);
+  const [isEditingHistory, setIsEditingHistory] = useState(false);
 
   useEffect(() => {
     const savedHistory = localStorage.getItem('kt_kitchen_history_v2');
@@ -120,6 +121,51 @@ const KitchenView: React.FC<KitchenViewProps> = ({ currentUser }) => {
         setCurrentRecord({ ...currentRecord, days: newDays });
       }
     } catch (e) { console.warn("Update grams failed", e); }
+  };
+
+  // 历史记录编辑功能
+  const updateHistoryDishName = (dayIdx: number, mealKey: string, subKey: string | null, value: string) => {
+    if (!selectedHistoryRecord?.days?.[dayIdx]) return;
+    const newDays = [...selectedHistoryRecord.days];
+    const day = newDays[dayIdx];
+    try {
+      if (subKey) {
+        (day.meals as any)[mealKey][subKey].dishName = value;
+      } else {
+        (day.meals as any)[mealKey].dishName = value;
+      }
+      setSelectedHistoryRecord({ ...selectedHistoryRecord, days: newDays });
+    } catch (e) { console.warn("Update history dish name failed", e); }
+  };
+
+  const updateHistoryIngredientGrams = (dayIdx: number, mealKey: string, subKey: string | null, ingIdx: number, grams: number) => {
+    if (!selectedHistoryRecord?.days?.[dayIdx]) return;
+    const newDays = [...selectedHistoryRecord.days];
+    try {
+      let dish: any;
+      if (subKey) {
+        dish = (newDays[dayIdx].meals as any)[mealKey][subKey];
+      } else {
+        dish = (newDays[dayIdx].meals as any)[mealKey];
+      }
+      if (dish?.ingredients?.[ingIdx]) {
+        dish.ingredients[ingIdx].perPersonGrams = grams;
+        setSelectedHistoryRecord({ ...selectedHistoryRecord, days: newDays });
+      }
+    } catch (e) { console.warn("Update history grams failed", e); }
+  };
+
+  // 保存历史记录编辑
+  const saveHistoryEdit = () => {
+    if (!selectedHistoryRecord) return;
+    
+    const updatedHistory = history.map(h => 
+      h.id === selectedHistoryRecord.id ? selectedHistoryRecord : h
+    );
+    setHistory(updatedHistory);
+    localStorage.setItem('kt_kitchen_history_v2', JSON.stringify(updatedHistory));
+    setIsEditingHistory(false);
+    alert('食谱修改已保存！');
   };
 
   // 点击确认按钮 - 显示确认弹窗
@@ -937,6 +983,7 @@ const KitchenView: React.FC<KitchenViewProps> = ({ currentUser }) => {
                 <div>
                   <h3 className="font-black text-xl text-slate-800">
                     {CAMPUS_CONFIG[selectedHistoryRecord.grade]?.name} · {selectedHistoryRecord.weekRange || '周食谱'}
+                    {isEditingHistory && <span className="ml-2 text-purple-600 text-sm">📝 编辑中</span>}
                   </h3>
                   <p className="text-sm text-slate-500 flex items-center gap-2 mt-1">
                     <Calendar className="w-4 h-4" />
@@ -944,12 +991,25 @@ const KitchenView: React.FC<KitchenViewProps> = ({ currentUser }) => {
                   </p>
                 </div>
               </div>
-              <button
-                onClick={() => setSelectedHistoryRecord(null)}
-                className="p-2 hover:bg-slate-200 rounded-full transition-colors"
-              >
-                <span className="text-2xl text-slate-400">×</span>
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setIsEditingHistory(!isEditingHistory)}
+                  className={`px-4 py-2 rounded-xl font-bold text-sm transition-all flex items-center gap-2 ${
+                    isEditingHistory 
+                      ? 'bg-purple-100 text-purple-700' 
+                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  }`}
+                >
+                  <Edit className="w-4 h-4" />
+                  {isEditingHistory ? '编辑中' : '编辑'}
+                </button>
+                <button
+                  onClick={() => { setSelectedHistoryRecord(null); setIsEditingHistory(false); }}
+                  className="p-2 hover:bg-slate-200 rounded-full transition-colors"
+                >
+                  <span className="text-2xl text-slate-400">×</span>
+                </button>
+              </div>
             </div>
 
             {/* 营养汇总 */}
@@ -994,7 +1054,7 @@ const KitchenView: React.FC<KitchenViewProps> = ({ currentUser }) => {
                   {/* 渲染每餐详情 */}
                   {(() => {
                     const day = selectedHistoryRecord.days[historyDetailDayIdx];
-                    const renderMealDetail = (label: string, dish: MealDish | undefined, icon: React.ReactNode, bgColor: string) => {
+                    const renderMealDetail = (label: string, dish: MealDish | undefined, icon: React.ReactNode, bgColor: string, mealKey: string, subKey: string | null = null) => {
                       if (!dish || !dish.dishName || dish.dishName === '待定') return null;
                       return (
                         <div className={`${bgColor} p-4 rounded-2xl`}>
@@ -1002,12 +1062,30 @@ const KitchenView: React.FC<KitchenViewProps> = ({ currentUser }) => {
                             {icon}
                             <span className="text-xs font-black text-slate-500 uppercase tracking-widest">{label}</span>
                           </div>
-                          <p className="font-bold text-slate-800 text-lg mb-2">{dish.dishName}</p>
+                          {isEditingHistory ? (
+                            <input
+                              value={dish.dishName}
+                              onChange={(e) => updateHistoryDishName(historyDetailDayIdx, mealKey, subKey, e.target.value)}
+                              className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 font-bold text-slate-800 text-lg mb-2 focus:ring-2 focus:ring-purple-400 outline-none"
+                            />
+                          ) : (
+                            <p className="font-bold text-slate-800 text-lg mb-2">{dish.dishName}</p>
+                          )}
                           <div className="flex flex-wrap gap-2">
                             {dish.ingredients?.map((ing, idx) => (
-                              <span key={idx} className="bg-white px-3 py-1 rounded-lg text-sm">
+                              <span key={idx} className="bg-white px-3 py-1 rounded-lg text-sm flex items-center gap-1">
                                 <span className="text-slate-700">{ing.name}</span>
-                                <span className="text-amber-600 font-bold ml-1">{ing.perPersonGrams}g</span>
+                                {isEditingHistory ? (
+                                  <input
+                                    type="number"
+                                    value={ing.perPersonGrams || 0}
+                                    onChange={(e) => updateHistoryIngredientGrams(historyDetailDayIdx, mealKey, subKey, idx, Number(e.target.value))}
+                                    className="w-12 bg-amber-50 border border-amber-200 rounded px-1 text-amber-600 font-bold text-center"
+                                  />
+                                ) : (
+                                  <span className="text-amber-600 font-bold ml-1">{ing.perPersonGrams}g</span>
+                                )}
+                                {!isEditingHistory && <span className="text-slate-400">g</span>}
                               </span>
                             ))}
                           </div>
@@ -1017,26 +1095,26 @@ const KitchenView: React.FC<KitchenViewProps> = ({ currentUser }) => {
 
                     return (
                       <>
-                        {renderMealDetail('元气早餐', day.meals?.breakfast, <Wheat className="w-4 h-4 text-amber-500" />, 'bg-amber-50')}
+                        {renderMealDetail('元气早餐', day.meals?.breakfast, <Wheat className="w-4 h-4 text-amber-500" />, 'bg-amber-50', 'breakfast')}
                         
-                        {day.meals?.morningFruitSnack && renderMealDetail('水果加餐', day.meals.morningFruitSnack, <Apple className="w-4 h-4 text-red-400" />, 'bg-red-50')}
+                        {day.meals?.morningFruitSnack && renderMealDetail('水果加餐', day.meals.morningFruitSnack, <Apple className="w-4 h-4 text-red-400" />, 'bg-red-50', 'morningFruitSnack')}
                         
-                        {renderMealDetail('早点水果', day.meals?.morningSnack, <Apple className="w-4 h-4 text-green-500" />, 'bg-green-50')}
+                        {renderMealDetail('早点水果', day.meals?.morningSnack, <Apple className="w-4 h-4 text-green-500" />, 'bg-green-50', 'morningSnack')}
                         
                         {/* 午餐组合 */}
                         <div className="border-2 border-dashed border-slate-200 rounded-2xl p-4 space-y-3">
                           <p className="text-center text-xs font-black text-slate-400 uppercase tracking-widest">正式午餐组合</p>
-                          {renderMealDetail('午餐主菜', day.meals?.lunch?.mainDish, <Beef className="w-4 h-4 text-rose-500" />, 'bg-rose-50')}
-                          {renderMealDetail('午餐副菜', day.meals?.lunch?.sideDish, <Utensils className="w-4 h-4 text-slate-400" />, 'bg-slate-50')}
-                          {renderMealDetail('午餐汤品', day.meals?.lunch?.soup, <Utensils className="w-4 h-4 text-blue-400" />, 'bg-blue-50')}
-                          {renderMealDetail('午餐主食', day.meals?.lunch?.staple, <Wheat className="w-4 h-4 text-amber-400" />, 'bg-amber-50')}
+                          {renderMealDetail('午餐主菜', day.meals?.lunch?.mainDish, <Beef className="w-4 h-4 text-rose-500" />, 'bg-rose-50', 'lunch', 'mainDish')}
+                          {renderMealDetail('午餐副菜', day.meals?.lunch?.sideDish, <Utensils className="w-4 h-4 text-slate-400" />, 'bg-slate-50', 'lunch', 'sideDish')}
+                          {renderMealDetail('午餐汤品', day.meals?.lunch?.soup, <Utensils className="w-4 h-4 text-blue-400" />, 'bg-blue-50', 'lunch', 'soup')}
+                          {renderMealDetail('午餐主食', day.meals?.lunch?.staple, <Wheat className="w-4 h-4 text-amber-400" />, 'bg-amber-50', 'lunch', 'staple')}
                         </div>
                         
-                        {renderMealDetail('牛奶加餐', day.meals?.milkSnack, <Milk className="w-4 h-4 text-slate-400" />, 'bg-slate-50')}
+                        {renderMealDetail('牛奶加餐', day.meals?.milkSnack, <Milk className="w-4 h-4 text-slate-400" />, 'bg-slate-50', 'milkSnack')}
                         
-                        {renderMealDetail('午后点心', day.meals?.afternoonSnack, <Apple className="w-4 h-4 text-orange-400" />, 'bg-orange-50')}
+                        {renderMealDetail('午后点心', day.meals?.afternoonSnack, <Apple className="w-4 h-4 text-orange-400" />, 'bg-orange-50', 'afternoonSnack')}
                         
-                        {renderMealDetail('营养晚餐', day.meals?.dinner, <Utensils className="w-4 h-4 text-purple-400" />, 'bg-purple-50')}
+                        {renderMealDetail('营养晚餐', day.meals?.dinner, <Utensils className="w-4 h-4 text-purple-400" />, 'bg-purple-50', 'dinner')}
 
                         {/* 当日营养 */}
                         {day.dailyNutrition && (
@@ -1083,22 +1161,32 @@ const KitchenView: React.FC<KitchenViewProps> = ({ currentUser }) => {
             {/* 底部操作 */}
             <div className="p-4 border-t border-slate-100 bg-slate-50 flex gap-3">
               <button
-                onClick={() => setSelectedHistoryRecord(null)}
+                onClick={() => { setSelectedHistoryRecord(null); setIsEditingHistory(false); }}
                 className="flex-1 px-6 py-3 bg-slate-200 text-slate-700 rounded-xl font-bold hover:bg-slate-300 transition-colors"
               >
                 关闭
               </button>
-              <button
-                onClick={() => {
-                  setCurrentRecord(selectedHistoryRecord);
-                  setSelectedHistoryRecord(null);
-                  setViewMode('PLANNER');
-                }}
-                className="flex-1 px-6 py-3 bg-amber-600 text-white rounded-xl font-bold hover:bg-amber-700 transition-colors flex items-center justify-center gap-2"
-              >
-                <Sparkles className="w-4 h-4" />
-                复用此食谱
-              </button>
+              {isEditingHistory ? (
+                <button
+                  onClick={saveHistoryEdit}
+                  className="flex-1 px-6 py-3 bg-purple-600 text-white rounded-xl font-bold hover:bg-purple-700 transition-colors flex items-center justify-center gap-2"
+                >
+                  <Save className="w-4 h-4" />
+                  保存修改
+                </button>
+              ) : (
+                <button
+                  onClick={() => {
+                    setCurrentRecord(selectedHistoryRecord);
+                    setSelectedHistoryRecord(null);
+                    setViewMode('PLANNER');
+                  }}
+                  className="flex-1 px-6 py-3 bg-amber-600 text-white rounded-xl font-bold hover:bg-amber-700 transition-colors flex items-center justify-center gap-2"
+                >
+                  <Sparkles className="w-4 h-4" />
+                  复用此食谱
+                </button>
+              )}
             </div>
           </div>
         </div>
