@@ -16,7 +16,7 @@ export default defineConfig(({ mode }) => {
       jsxRuntime: 'automatic',
       jsxImportSource: 'react'
     })],
-    base: './',
+    base: '/Venus-Management/',
     esbuild: {
       jsxDev: false
     },
