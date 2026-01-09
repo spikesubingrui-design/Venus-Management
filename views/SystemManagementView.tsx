@@ -239,6 +239,65 @@ const SystemManagementView: React.FC<SystemManagementViewProps> = ({ currentUser
     }
   };
 
+  // 从教职工列表导入手机号到授权名单
+  const handleImportTeacherPhones = async () => {
+    const teachers = JSON.parse(localStorage.getItem('kt_teachers') || '[]');
+    
+    if (teachers.length === 0) {
+      alert('暂无教职工数据，请先在"教职工管理"中添加教职工');
+      return;
+    }
+
+    let addedCount = 0;
+    let skippedCount = 0;
+    const existingPhones = new Set(authorizedPhones.map(p => typeof p === 'string' ? p : p.phone));
+
+    for (const teacher of teachers) {
+      if (!teacher.phone) continue;
+      
+      const cleanPhone = teacher.phone.replace(/\D/g, '');
+      if (cleanPhone.length !== 11) continue;
+      
+      // 检查是否已存在
+      if (existingPhones.has(cleanPhone)) {
+        skippedCount++;
+        continue;
+      }
+
+      const newAuthorizedPhone: AuthorizedPhone = {
+        phone: cleanPhone,
+        campus: teacher.campus || currentUser.campus || '总园',
+        role: 'TEACHER',
+        is_used: false,
+        created_at: new Date().toISOString()
+      };
+
+      // 云端添加
+      if (isSupabaseConfigured && supabaseConnected) {
+        try {
+          await supabase.from('authorized_phones').insert({
+            phone: cleanPhone,
+            campus: newAuthorizedPhone.campus,
+            role: 'TEACHER',
+            added_by: currentUser.id
+          });
+        } catch (err) {
+          console.error('云端添加失败:', cleanPhone, err);
+        }
+      }
+
+      authorizedPhones.push(newAuthorizedPhone);
+      existingPhones.add(cleanPhone);
+      addedCount++;
+    }
+
+    // 更新状态和本地存储
+    setAuthorizedPhones([...authorizedPhones]);
+    localStorage.setItem('kt_authorized_phones', JSON.stringify(authorizedPhones.map(p => typeof p === 'string' ? p : p.phone)));
+
+    alert(`导入完成！\n✅ 新增授权: ${addedCount} 个\n⏭️ 已跳过(已存在): ${skippedCount} 个\n📋 教职工总数: ${teachers.length} 人`);
+  };
+
   return (
     <div className="space-y-8 animate-in fade-in duration-500 relative">
       {/* 装饰元素 */}
@@ -297,7 +356,16 @@ const SystemManagementView: React.FC<SystemManagementViewProps> = ({ currentUser
                   <h3 className="text-xl font-bold text-slate-800">授权名单</h3>
                   <p className="text-slate-400 text-xs mt-1">仅限名单内的号码注册入园</p>
                 </div>
-                <span className="bg-amber-100 text-amber-700 px-4 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest">{authorizedPhones.length} 个席位</span>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={handleImportTeacherPhones}
+                    className="bg-emerald-600 text-white px-4 py-2 rounded-xl font-bold text-xs hover:bg-emerald-700 shadow-lg shadow-emerald-200 transition-all active:scale-95 flex items-center gap-2"
+                  >
+                    <Users className="w-4 h-4" />
+                    导入教职工
+                  </button>
+                  <span className="bg-amber-100 text-amber-700 px-4 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest">{authorizedPhones.length} 个席位</span>
+                </div>
               </div>
               
               <div className="p-10">
