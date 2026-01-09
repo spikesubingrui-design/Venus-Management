@@ -93,6 +93,8 @@ const StudentsView: React.FC<StudentsViewProps> = ({ currentUser }) => {
   const [isDisinfectModalOpen, setIsDisinfectModalOpen] = useState(false);
   
   const today = new Date().toISOString().split('T')[0];
+  // 考勤日期选择（支持补登历史）
+  const [attendanceDate, setAttendanceDate] = useState(today);
   
   // 获取保存的家长接送信息（自动填充用）
   const getSavedPickerInfo = () => {
@@ -238,36 +240,44 @@ const StudentsView: React.FC<StudentsViewProps> = ({ currentUser }) => {
     try {
       const now = new Date();
       const timeStr = now.toLocaleTimeString();
+      const targetDate = attendanceDate;  // 使用选择的日期
+      
+      // 加载该日期的现有记录
+      const existingData = localStorage.getItem(`kt_attendance_${targetDate}`);
+      const existingRecords = existingData ? JSON.parse(existingData) : {};
       
       Object.entries(pendingAttendance).forEach(([studentId, status]) => {
         const record: AttendanceRecord = {
-          id: `${studentId}_${today}`,
+          id: `${studentId}_${targetDate}`,
           studentId,
-          date: today,
+          date: targetDate,
           status,
           checkInTime: status === 'present' || status === 'late' ? timeStr : undefined,
           recordedBy: currentUser.name,
           recordedAt: now.toISOString()
         };
         
-        attendanceRecords[studentId] = record;
+        existingRecords[studentId] = record;
       });
       
-      setAttendanceRecords({ ...attendanceRecords });
-      localStorage.setItem(`kt_attendance_${today}`, JSON.stringify(attendanceRecords));
+      setAttendanceRecords(existingRecords);
+      localStorage.setItem(`kt_attendance_${targetDate}`, JSON.stringify(existingRecords));
       
-      // 更新学生状态
-      const updatedStudents = students.map(s => ({
-        ...s,
-        status: pendingAttendance[s.id] || s.status,
-        todayAttendance: attendanceRecords[s.id]
-      }));
-      setStudents(updatedStudents);
-      localStorage.setItem('kt_students_local', JSON.stringify(updatedStudents));
+      // 仅当登记的是今天的考勤时，更新学生当前状态
+      if (targetDate === today) {
+        const updatedStudents = students.map(s => ({
+          ...s,
+          status: pendingAttendance[s.id] || s.status,
+          todayAttendance: existingRecords[s.id]
+        }));
+        setStudents(updatedStudents);
+        localStorage.setItem('kt_students_local', JSON.stringify(updatedStudents));
+      }
       
       const presentCount = Object.values(pendingAttendance).filter(s => s === 'present').length;
       const totalCount = Object.keys(pendingAttendance).length;
-      toast.success('考勤提交成功', `已记录 ${totalCount} 人考勤，出勤 ${presentCount} 人`);
+      const dateLabel = targetDate === today ? '今日' : targetDate;
+      toast.success('考勤提交成功', `已记录 ${dateLabel} ${totalCount} 人考勤，出勤 ${presentCount} 人`);
       setShowAttendanceConfirm(false);
     } catch (err) {
       toast.error('考勤提交失败', '请稍后重试');
@@ -684,9 +694,45 @@ const StudentsView: React.FC<StudentsViewProps> = ({ currentUser }) => {
         <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden">
           <div className="px-6 py-4 bg-gradient-to-r from-emerald-50 to-teal-50 border-b border-emerald-100 flex items-center justify-between flex-wrap gap-3">
             <div>
-              <h3 className="font-black text-emerald-800">今日考勤 · {today}</h3>
+              <h3 className="font-black text-emerald-800 flex items-center gap-2">
+                考勤登记 · 
+                <input
+                  type="date"
+                  value={attendanceDate}
+                  max={today}
+                  onChange={e => {
+                    setAttendanceDate(e.target.value);
+                    // 加载该日期的考勤记录
+                    const existingData = localStorage.getItem(`kt_attendance_${e.target.value}`);
+                    if (existingData) {
+                      const records = JSON.parse(existingData);
+                      setAttendanceRecords(records);
+                      // 更新pending状态
+                      const pending: Record<string, AttendanceRecord['status']> = {};
+                      students.forEach(s => {
+                        pending[s.id] = records[s.id]?.status || 'present';
+                      });
+                      setPendingAttendance(pending);
+                    } else {
+                      // 没有记录，默认全勤
+                      const pending: Record<string, AttendanceRecord['status']> = {};
+                      students.forEach(s => {
+                        pending[s.id] = 'present';
+                      });
+                      setPendingAttendance(pending);
+                      setAttendanceRecords({});
+                    }
+                  }}
+                  className="px-3 py-1 border border-emerald-300 rounded-lg text-emerald-700 font-bold bg-white"
+                />
+                {attendanceDate !== today && (
+                  <span className="text-xs px-2 py-1 bg-amber-100 text-amber-700 rounded-full font-bold">
+                    补登历史
+                  </span>
+                )}
+              </h3>
               <p className="text-xs text-emerald-600 mt-1">
-                💡 默认全勤，只需标记缺勤/请假的学生，确认后提交
+                💡 默认全勤，只需标记缺勤/请假的学生，确认后提交。可选择过去日期补登考勤。
               </p>
             </div>
             <div className="flex items-center gap-3">

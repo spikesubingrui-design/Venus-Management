@@ -86,6 +86,8 @@ const FinanceView: React.FC<FinanceViewProps> = ({ currentUser }) => {
     },
     // 班级类型
     classType: 'standard' as 'standard' | 'nursery' | 'music',  // 标准班/优苗班/音乐班
+    // 缴费起始月份
+    startMonth: new Date().toISOString().slice(0, 7),  // 默认当月
     // 缴费周期
     periodType: 'monthly' as 'monthly' | 'semester' | 'yearly' | 'halfMonth' | 'daily',
     // 按天收费的天数
@@ -1653,11 +1655,43 @@ const FinanceView: React.FC<FinanceViewProps> = ({ currentUser }) => {
                     </div>
                   </div>
 
+                  {/* 缴费起始月份 */}
+                  <div>
+                    <label className="block text-sm font-bold text-slate-700 mb-2">
+                      📅 缴费起始月份
+                      <span className="text-xs text-slate-400 font-normal ml-2">选择从哪个月开始计费</span>
+                    </label>
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="month"
+                        value={paymentForm.startMonth}
+                        onChange={e => setPaymentForm(prev => ({ ...prev, startMonth: e.target.value }))}
+                        className="flex-1 px-4 py-3 border border-slate-200 rounded-xl font-bold text-slate-700 focus:ring-2 focus:ring-blue-400 outline-none"
+                      />
+                      <div className="text-sm text-slate-500">
+                        {(() => {
+                          const months = paymentForm.periodType === 'yearly' ? 12 : 
+                                        paymentForm.periodType === 'semester' ? 6 : 1;
+                          if (months > 1) {
+                            const start = new Date(paymentForm.startMonth + '-01');
+                            const end = new Date(start);
+                            end.setMonth(end.getMonth() + months - 1);
+                            return `→ ${end.toISOString().slice(0, 7)}`;
+                          }
+                          return '';
+                        })()}
+                      </div>
+                    </div>
+                    <p className="text-[10px] text-blue-600 mt-1">
+                      💡 例如：交3-8月的费，起始月份选"2026-03"，周期选"半年"
+                    </p>
+                  </div>
+
                   {/* 缴费周期 */}
                   <div>
                     <label className="block text-sm font-bold text-slate-700 mb-2">
-                      缴费周期
-                      <span className="text-xs text-slate-400 font-normal ml-2">选择缴费时长（新生首月可按天/半月）</span>
+                      缴费时长
+                      <span className="text-xs text-slate-400 font-normal ml-2">选择缴费几个月（新生首月可按天/半月）</span>
                     </label>
                     <div className="grid grid-cols-5 gap-2">
                       {[
@@ -2115,6 +2149,7 @@ const FinanceView: React.FC<FinanceViewProps> = ({ currentUser }) => {
                     agencyItems: { itemFee: false, schoolBag: false, uniform: false },
                     beddingItems: { outerSet: false, innerSet: false, fullSet: false },
                     classType: 'standard',
+                    startMonth: new Date().toISOString().slice(0, 7),
                     periodType: 'monthly',
                     dailyDays: 15,
                     paymentMethod: 'wechat',
@@ -2160,6 +2195,7 @@ const FinanceView: React.FC<FinanceViewProps> = ({ currentUser }) => {
                           discountType: paymentForm.hasDiscount && paymentForm.discountType ? paymentForm.discountType as any : undefined,
                           discountValue: paymentForm.hasDiscount ? paymentForm.discountValue : undefined,
                           discountReason: paymentForm.hasDiscount ? paymentForm.discountReason : undefined,
+                          startMonth: paymentForm.startMonth,  // 使用选择的起始月份
                         }
                       );
                       newPayments.push(payment);
@@ -2176,6 +2212,7 @@ const FinanceView: React.FC<FinanceViewProps> = ({ currentUser }) => {
                           paymentMethod: paymentForm.paymentMethod,
                           operator: currentUser.name,
                           notes: paymentForm.notes,
+                          startMonth: paymentForm.startMonth,  // 使用选择的起始月份
                         }
                       );
                       newPayments.push(payment);
@@ -2190,6 +2227,7 @@ const FinanceView: React.FC<FinanceViewProps> = ({ currentUser }) => {
                       agencyItems: { itemFee: false, schoolBag: false, uniform: false },
                       beddingItems: { outerSet: false, innerSet: false, fullSet: false },
                       classType: 'standard',
+                      startMonth: new Date().toISOString().slice(0, 7),
                       periodType: 'monthly',
                       dailyDays: 15,
                       paymentMethod: 'wechat',

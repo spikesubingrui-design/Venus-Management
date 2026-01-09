@@ -851,6 +851,7 @@ export function createPayment(
     discountValue?: number;
     discountReason?: string;
     customAmount?: number;  // 自定义金额（覆盖计算）
+    startMonth?: string;    // 缴费起始月份，默认当月
   }
 ): FeePayment {
   const fees = getStudentActualFees(student);
@@ -901,13 +902,13 @@ export function createPayment(
     ? paymentInfo.customAmount 
     : standardAmount - discountAmount;
   
-  // 生成周期字符串
-  const startMonth = now.toISOString().slice(0, 7);
+  // 生成周期字符串（使用指定的起始月份，或默认当月）
+  const startMonth = paymentInfo.startMonth || now.toISOString().slice(0, 7);
   let period = startMonth;
   if (periodMonths > 1) {
-    const endDate = new Date(now);
-    endDate.setMonth(endDate.getMonth() + periodMonths - 1);
-    period = `${startMonth}~${endDate.toISOString().slice(0, 7)}`;
+    const startDate = new Date(startMonth + '-01');
+    startDate.setMonth(startDate.getMonth() + periodMonths - 1);
+    period = `${startMonth}~${startDate.toISOString().slice(0, 7)}`;
   }
   
   const payment: FeePayment = {
