@@ -1233,4 +1233,191 @@ export function getPendingQRPaymentCount(): number {
   return records.filter(r => r.status === 'pending').length;
 }
 
+/**
+ * 学生缴费状态
+ */
+export interface StudentPaymentStatus {
+  studentId: string;
+  studentName: string;
+  class: string;
+  campus: string;
+  
+  // 保教费状态
+  tuitionStatus: 'paid' | 'due' | 'overdue';
+  tuitionPaidUntil?: string;  // 已缴费至哪个月（如 2026-03）
+  tuitionDueMonth?: string;   // 需要缴费的月份
+  tuitionDaysOverdue?: number;// 逾期天数
+  
+  // 伙食费状态
+  mealStatus: 'paid' | 'due' | 'overdue';
+  mealPaidUntil?: string;
+  mealDueMonth?: string;
+  mealDaysOverdue?: number;
+  
+  // 缴费周期类型
+  lastPeriodType?: 'monthly' | 'semester' | 'yearly';
+  
+  // 是否需要缴费
+  needsPayment: boolean;
+  overdueItems: string[];
+}
+
+/**
+ * 获取单个学生的缴费状态
+ */
+export function getStudentPaymentStatus(student: Student, checkMonth?: string): StudentPaymentStatus {
+  const payments = getPayments({ studentId: student.id, status: 'confirmed' });
+  const currentMonth = checkMonth || new Date().toISOString().slice(0, 7);
+  
+  // 分析保教费缴费情况
+  const tuitionPayments = payments.filter(p => p.feeType === 'tuition').sort((a, b) => 
+    b.period.localeCompare(a.period)
+  );
+  
+  // 分析伙食费缴费情况
+  const mealPayments = payments.filter(p => p.feeType === 'meal').sort((a, b) => 
+    b.period.localeCompare(a.period)
+  );
+  
+  // 计算保教费已缴至
+  let tuitionPaidUntil: string | undefined;
+  let lastPeriodType: 'monthly' | 'semester' | 'yearly' | undefined;
+  
+  if (tuitionPayments.length > 0) {
+    const latestTuition = tuitionPayments[0];
+    lastPeriodType = latestTuition.periodType;
+    
+    // 如果是范围（如 2026-01~2026-06），取结束月份
+    if (latestTuition.period.includes('~')) {
+      tuitionPaidUntil = latestTuition.period.split('~')[1];
+    } else {
+      tuitionPaidUntil = latestTuition.period;
+    }
+  }
+  
+  // 计算伙食费已缴至
+  let mealPaidUntil: string | undefined;
+  if (mealPayments.length > 0) {
+    const latestMeal = mealPayments[0];
+    if (latestMeal.period.includes('~')) {
+      mealPaidUntil = latestMeal.period.split('~')[1];
+    } else {
+      mealPaidUntil = latestMeal.period;
+    }
+  }
+  
+  // 判断保教费状态
+  let tuitionStatus: 'paid' | 'due' | 'overdue' = 'due';
+  let tuitionDueMonth = currentMonth;
+  let tuitionDaysOverdue = 0;
+  
+  if (tuitionPaidUntil) {
+    if (tuitionPaidUntil >= currentMonth) {
+      tuitionStatus = 'paid';
+    } else {
+      // 计算逾期
+      const paidDate = new Date(tuitionPaidUntil + '-01');
+      const currentDate = new Date(currentMonth + '-01');
+      const monthsDiff = (currentDate.getFullYear() - paidDate.getFullYear()) * 12 + 
+                         (currentDate.getMonth() - paidDate.getMonth());
+      
+      if (monthsDiff > 0) {
+        tuitionStatus = 'overdue';
+        tuitionDueMonth = new Date(paidDate.getFullYear(), paidDate.getMonth() + 1, 1)
+          .toISOString().slice(0, 7);
+        tuitionDaysOverdue = Math.floor((currentDate.getTime() - paidDate.getTime()) / (1000 * 60 * 60 * 24));
+      }
+    }
+  }
+  
+  // 判断伙食费状态
+  let mealStatus: 'paid' | 'due' | 'overdue' = 'due';
+  let mealDueMonth = currentMonth;
+  let mealDaysOverdue = 0;
+  
+  if (mealPaidUntil) {
+    if (mealPaidUntil >= currentMonth) {
+      mealStatus = 'paid';
+    } else {
+      const paidDate = new Date(mealPaidUntil + '-01');
+      const currentDate = new Date(currentMonth + '-01');
+      const monthsDiff = (currentDate.getFullYear() - paidDate.getFullYear()) * 12 + 
+                         (currentDate.getMonth() - paidDate.getMonth());
+      
+      if (monthsDiff > 0) {
+        mealStatus = 'overdue';
+        mealDueMonth = new Date(paidDate.getFullYear(), paidDate.getMonth() + 1, 1)
+          .toISOString().slice(0, 7);
+        mealDaysOverdue = Math.floor((currentDate.getTime() - paidDate.getTime()) / (1000 * 60 * 60 * 24));
+      }
+    }
+  }
+  
+  // 汇总需要缴费的项目
+  const overdueItems: string[] = [];
+  if (tuitionStatus === 'overdue') overdueItems.push('保教费');
+  if (mealStatus === 'overdue') overdueItems.push('伙食费');
+  
+  const needsPayment = tuitionStatus !== 'paid' || mealStatus !== 'paid';
+  
+  return {
+    studentId: student.id,
+    studentName: student.name,
+    class: student.class,
+    campus: student.campus,
+    tuitionStatus,
+    tuitionPaidUntil,
+    tuitionDueMonth: tuitionStatus !== 'paid' ? tuitionDueMonth : undefined,
+    tuitionDaysOverdue: tuitionStatus === 'overdue' ? tuitionDaysOverdue : undefined,
+    mealStatus,
+    mealPaidUntil,
+    mealDueMonth: mealStatus !== 'paid' ? mealDueMonth : undefined,
+    mealDaysOverdue: mealStatus === 'overdue' ? mealDaysOverdue : undefined,
+    lastPeriodType,
+    needsPayment,
+    overdueItems,
+  };
+}
+
+/**
+ * 批量获取所有学生的缴费状态
+ */
+export function getAllStudentPaymentStatuses(campus?: string, checkMonth?: string): StudentPaymentStatus[] {
+  const studentsData = localStorage.getItem('kt_students_local') || localStorage.getItem(STORAGE_KEYS.STUDENTS);
+  const allStudents: Student[] = studentsData ? JSON.parse(studentsData) : [];
+  // Filter by campus only (if specified) - status field is for daily attendance, not enrollment
+  const campusStudents = campus 
+    ? allStudents.filter(s => s.campus === campus)
+    : allStudents;
+  
+  return campusStudents.map(student => getStudentPaymentStatus(student, checkMonth));
+}
+
+/**
+ * 获取需要缴费的学生列表
+ */
+export function getStudentsNeedingPayment(campus?: string, checkMonth?: string): StudentPaymentStatus[] {
+  return getAllStudentPaymentStatuses(campus, checkMonth).filter(s => s.needsPayment);
+}
+
+/**
+ * 获取逾期未缴费的学生列表
+ */
+export function getOverdueStudents(campus?: string, checkMonth?: string): StudentPaymentStatus[] {
+  return getAllStudentPaymentStatuses(campus, checkMonth).filter(s => s.overdueItems.length > 0);
+}
+
+/**
+ * 获取缴费到期提醒（本月即将到期的学生）
+ */
+export function getPaymentDueReminders(campus: string): StudentPaymentStatus[] {
+  const currentMonth = new Date().toISOString().slice(0, 7);
+  const allStatuses = getAllStudentPaymentStatuses(campus, currentMonth);
+  
+  // 筛选本月到期的学生（tuitionPaidUntil 或 mealPaidUntil 等于当前月）
+  return allStatuses.filter(s => 
+    s.tuitionPaidUntil === currentMonth || s.mealPaidUntil === currentMonth
+  );
+}
+
 

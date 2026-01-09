@@ -70,8 +70,8 @@ export type Permission =
   // AI助手权限
   | 'ai.use'                 // 使用AI助手
   
-  // 财务退费权限
-  | 'finance.view'           // 查看财务退费
+  // 收费管理权限
+  | 'finance.view'           // 查看收费管理
   | 'finance.calculate'      // 计算退费
   | 'finance.approve'        // 审批退费
   | 'finance.config'         // 配置退费规则
@@ -126,7 +126,7 @@ const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     'dashboard.view', 'dashboard.export',
     // AI助手
     'ai.use',
-    // 财务退费 - 全部权限（园长可审批、配置规则）
+    // 收费管理 - 全部权限（园长可审批、配置规则）
     'finance.view', 'finance.calculate', 'finance.approve', 'finance.config',
     // AI观察记录 - 全部权限
     'observation.view', 'observation.create', 'observation.aiRefine', 'observation.share',
@@ -163,7 +163,7 @@ const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     'dashboard.view', 'dashboard.export',
     // AI助手
     'ai.use',
-    // 财务退费 - 可查看、计算、审批，但不能配置规则
+    // 收费管理 - 可查看、计算、审批，但不能配置规则
     'finance.view', 'finance.calculate', 'finance.approve',
     // AI观察记录 - 全部权限
     'observation.view', 'observation.create', 'observation.aiRefine', 'observation.share',
@@ -305,7 +305,7 @@ export const getPermissionDescription = (permission: Permission): string => {
     'dashboard.export': '导出数据',
     'ai.use': '使用AI助手',
     // 新增功能权限描述
-    'finance.view': '查看财务退费',
+    'finance.view': '查看收费管理',
     'finance.calculate': '计算退费金额',
     'finance.approve': '审批退费',
     'finance.config': '配置退费规则',

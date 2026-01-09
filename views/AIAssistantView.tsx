@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Sparkles, Send, Loader2, Wand2, RefreshCcw, User, BookOpen, FileText, ClipboardList, AlertCircle } from 'lucide-react';
+import { Sparkles, Send, Loader2, Wand2, RefreshCcw, User, BookOpen, FileText, ClipboardList, AlertCircle, Leaf, TreeDeciduous } from 'lucide-react';
 import { chatWithAssistant, generateDailyReport } from '../services/geminiService';
 import { initializeKnowledgeBase } from '../services/knowledgeBaseService';
 
@@ -11,7 +11,7 @@ const AIAssistantView: React.FC = () => {
   }, []);
 
   const [messages, setMessages] = useState<any[]>([
-    { role: 'ai', text: '你好！我是金星AI助手 🌟\n\n我会**优先查阅学校内部资料**（退费准则、备课模板、工作规范等）来回答您的问题。\n\n您可以问我：\n• 退费怎么计算？\n• 帮我写今天的工作总结\n• 明天的备课计划怎么写？\n• 新生入园流程是什么？\n\n今天有什么可以帮你的吗？' }
+    { role: 'ai', text: '你好！我是金星AI助手 🌿\n\n我会**优先查阅学校内部资料**（退费准则、备课模板、工作规范等）来回答您的问题。\n\n您可以问我：\n• 退费怎么计算？\n• 帮我写今天的工作总结\n• 明天的备课计划怎么写？\n• 新生入园流程是什么？\n\n今天有什么可以帮你的吗？' }
   ]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -61,106 +61,125 @@ const AIAssistantView: React.FC = () => {
     }
   };
 
+  const [showTools, setShowTools] = useState(false);
+
   return (
-    <div className="h-full flex flex-col space-y-6 max-w-5xl mx-auto">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-3">
-            <Sparkles className="w-7 h-7 text-orange-500" />
-            金星AI助手
-          </h1>
-          <p className="text-slate-500">优先查阅学校内部资料，帮您解答政策、生成模板、辅助备课。</p>
+    <div className="h-full flex flex-col max-w-6xl mx-auto">
+      {/* 顶部标题栏 - 自然有机风格 */}
+      <div className="flex items-center justify-between mb-4 shrink-0">
+        <div className="flex items-center gap-3">
+          <div className="p-3 rounded-full shadow-lg" style={{ backgroundColor: '#4a5d3a' }}>
+            <Leaf className="w-6 h-6 text-[#c9dbb8]" />
+          </div>
+          <div>
+            <h1 className="text-xl font-bold" style={{ color: '#4a5d3a', fontFamily: "'Noto Serif SC', serif" }}>金星AI助手</h1>
+            <p className="text-xs" style={{ color: '#8b7355' }}>优先查阅学校内部资料，帮您解答政策、生成模板</p>
+          </div>
         </div>
-        <div className="hidden md:flex items-center gap-2 text-xs bg-blue-50 text-blue-600 px-3 py-1.5 rounded-full">
-          <BookOpen className="w-4 h-4" />
-          <span>内部知识库已加载</span>
+        <div className="flex items-center gap-2">
+          <div className="hidden md:flex items-center gap-2 text-xs px-3 py-1.5 rounded-full border-2 border-dashed" style={{ backgroundColor: '#4a5d3a10', borderColor: '#4a5d3a30', color: '#4a5d3a' }}>
+            <TreeDeciduous className="w-3 h-3" />
+            <span>知识库已加载</span>
+          </div>
+          <button 
+            onClick={() => setShowTools(!showTools)}
+            className={`px-4 py-2 rounded-full text-sm font-semibold transition-all flex items-center gap-2 border-2 ${
+              showTools 
+                ? 'text-white border-transparent' 
+                : 'border-[#4a5d3a]/20 hover:border-[#4a5d3a]/40'
+            }`}
+            style={{ 
+              backgroundColor: showTools ? '#4a5d3a' : '#f5f2ed',
+              color: showTools ? 'white' : '#4a5d3a'
+            }}
+          >
+            <Wand2 className="w-4 h-4" />
+            {showTools ? '收起工具' : '快捷工具'}
+          </button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 flex-1 overflow-hidden">
-        {/* 快捷工具 */}
-        <div className="space-y-6 overflow-y-auto pr-2">
-          <div className="bg-gradient-to-br from-orange-500 to-amber-500 rounded-3xl p-6 text-white shadow-lg shadow-orange-100">
-            <h3 className="font-bold text-lg mb-4 flex items-center gap-2">
-              <Wand2 className="w-5 h-5" />
+      {/* 快捷工具面板 - 自然风格 */}
+      {showTools && (
+        <div className="mb-4 grid grid-cols-1 md:grid-cols-3 gap-4 shrink-0 animate-in slide-in-from-top duration-300">
+          {/* 快速报告生成器 */}
+          <div className="rounded-2xl p-4 text-white shadow-lg" style={{ backgroundColor: '#4a5d3a' }}>
+            <h3 className="font-semibold text-sm mb-3 flex items-center gap-2 text-[#c9dbb8]">
+              <Wand2 className="w-4 h-4" />
               快速报告生成器
             </h3>
-            <div className="space-y-4">
-              <div>
-                <label className="text-xs font-bold uppercase tracking-wider opacity-80 block mb-1">幼儿姓名</label>
-                <input 
-                  type="text" 
-                  value={reportData.name}
-                  onChange={(e) => setReportData({...reportData, name: e.target.value})}
-                  placeholder="例如：李子轩"
-                  className="w-full bg-white/20 border-white/30 rounded-xl px-4 py-2 text-sm placeholder:text-white/60 focus:bg-white/30 transition-all outline-none"
-                />
-              </div>
-              <div>
-                <label className="text-xs font-bold uppercase tracking-wider opacity-80 block mb-1">当日观察点</label>
-                <textarea 
-                  rows={4}
-                  value={reportData.points}
-                  onChange={(e) => setReportData({...reportData, points: e.target.value})}
-                  placeholder="例如：乐于分享玩具，午餐全部吃完，认识了蝴蝶..."
-                  className="w-full bg-white/20 border-white/30 rounded-xl px-4 py-2 text-sm placeholder:text-white/60 focus:bg-white/30 transition-all outline-none resize-none"
-                />
-              </div>
+            <div className="space-y-2">
+              <input 
+                type="text" 
+                value={reportData.name}
+                onChange={(e) => setReportData({...reportData, name: e.target.value})}
+                placeholder="幼儿姓名"
+                className="w-full bg-white/15 rounded-lg px-3 py-2 text-sm placeholder:text-white/50 outline-none border border-white/10 focus:border-white/30"
+              />
+              <textarea 
+                rows={2}
+                value={reportData.points}
+                onChange={(e) => setReportData({...reportData, points: e.target.value})}
+                placeholder="当日观察点..."
+                className="w-full bg-white/15 rounded-lg px-3 py-2 text-sm placeholder:text-white/50 outline-none resize-none border border-white/10 focus:border-white/30"
+              />
               <button 
                 onClick={handleGenerateReport}
                 disabled={isGeneratingReport || !reportData.name || !reportData.points}
-                className="w-full bg-white text-orange-600 font-bold py-3 rounded-xl hover:bg-orange-50 transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-sm"
+                className="w-full font-semibold py-2 rounded-lg text-sm transition-all disabled:opacity-50"
+                style={{ backgroundColor: '#c9a962', color: '#3d4a32' }}
               >
-                {isGeneratingReport ? <Loader2 className="w-5 h-5 animate-spin" /> : "生成家长汇报"}
+                {isGeneratingReport ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : "生成报告"}
               </button>
             </div>
           </div>
 
-          {/* 内部资料查询 */}
-          <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-100 rounded-3xl p-6 shadow-sm">
-            <h3 className="font-bold text-blue-800 mb-3 flex items-center gap-2">
-              <BookOpen className="w-5 h-5" />
-              查阅内部资料
+          {/* 常用问题 */}
+          <div className="rounded-2xl p-4 border-2" style={{ backgroundColor: '#f5f2ed', borderColor: '#e8e4dc' }}>
+            <h3 className="font-semibold text-sm mb-2 flex items-center gap-2" style={{ color: '#4a5d3a' }}>
+              <BookOpen className="w-4 h-4" />
+              常用问题
             </h3>
-            <p className="text-xs text-blue-600 mb-4">AI会优先从学校知识库查找答案</p>
-            <div className="space-y-2">
+            <div className="grid grid-cols-1 gap-1.5">
               {[
-                { icon: '💰', text: '退费怎么计算？有什么标准？', category: '财务' },
-                { icon: '📋', text: '帮我写今天的工作总结', category: '模板' },
-                { icon: '👶', text: '新生入园流程是什么？', category: '政策' },
-                { icon: '🏥', text: '幼儿发烧怎么处理？', category: '健康' },
-                { icon: '📝', text: '请假需要什么手续？', category: '人事' },
+                { icon: '🌱', text: '退费怎么计算？' },
+                { icon: '📝', text: '帮我写工作总结' },
+                { icon: '🌿', text: '新生入园流程' },
               ].map((item, idx) => (
                 <button 
                   key={idx}
-                  onClick={() => setInput(item.text)}
-                  className="w-full text-left text-sm p-3 rounded-xl bg-white text-slate-700 hover:bg-blue-100 hover:text-blue-700 transition-all border border-blue-100 font-medium flex items-center gap-2"
+                  onClick={() => { setInput(item.text); setShowTools(false); }}
+                  className="text-left text-xs p-2 rounded-lg transition-all flex items-center gap-2"
+                  style={{ backgroundColor: 'white', color: '#5c6b4d' }}
+                  onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#4a5d3a'; e.currentTarget.style.color = 'white'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'white'; e.currentTarget.style.color = '#5c6b4d'; }}
                 >
                   <span>{item.icon}</span>
-                  <span className="flex-1">{item.text}</span>
-                  <span className="text-[10px] text-blue-400 bg-blue-50 px-2 py-0.5 rounded">{item.category}</span>
+                  <span>{item.text}</span>
                 </button>
               ))}
             </div>
           </div>
 
-          {/* 工作模板 */}
-          <div className="bg-white border border-slate-100 rounded-3xl p-6 shadow-sm">
-            <h3 className="font-bold text-slate-800 mb-3 flex items-center gap-2">
-              <FileText className="w-5 h-5 text-amber-500" />
-              使用模板生成
+          {/* 模板生成 */}
+          <div className="rounded-2xl p-4 border-2" style={{ backgroundColor: '#faf6f0', borderColor: '#e8dfd4' }}>
+            <h3 className="font-semibold text-sm mb-2 flex items-center gap-2" style={{ color: '#8b6f47' }}>
+              <FileText className="w-4 h-4" />
+              模板生成
             </h3>
-            <div className="space-y-2">
+            <div className="grid grid-cols-1 gap-1.5">
               {[
-                { icon: '📚', text: '帮我生成明天的备课计划，主题是认识颜色' },
-                { icon: '📢', text: '写一份元旦放假通知给家长' },
-                { icon: '🎉', text: '策划一个六一儿童节活动方案' },
-                { icon: '📊', text: '写一份幼儿发展评估报告，基本情况是...' },
+                { icon: '📚', text: '备课计划' },
+                { icon: '📮', text: '家长通知' },
+                { icon: '🎊', text: '活动方案' },
               ].map((item, idx) => (
                 <button 
                   key={idx}
-                  onClick={() => setInput(item.text)}
-                  className="w-full text-left text-sm p-3 rounded-xl bg-slate-50 text-slate-600 hover:bg-amber-50 hover:text-amber-700 transition-all border border-transparent hover:border-amber-100 font-medium flex items-center gap-2"
+                  onClick={() => { setInput(`帮我生成${item.text}`); setShowTools(false); }}
+                  className="text-left text-xs p-2 rounded-lg transition-all flex items-center gap-2"
+                  style={{ backgroundColor: 'white', color: '#8b6f47' }}
+                  onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#c9a962'; e.currentTarget.style.color = 'white'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'white'; e.currentTarget.style.color = '#8b6f47'; }}
                 >
                   <span>{item.icon}</span>
                   <span>{item.text}</span>
@@ -169,76 +188,112 @@ const AIAssistantView: React.FC = () => {
             </div>
           </div>
         </div>
+      )}
 
-        {/* 聊天界面 */}
-        <div className="lg:col-span-2 bg-white rounded-3xl border border-slate-100 shadow-sm flex flex-col overflow-hidden h-[500px] md:h-[600px]">
-          <div className="p-4 border-b border-slate-50 flex items-center justify-between shrink-0">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center text-orange-600">
-                <Sparkles className="w-6 h-6" />
+      {/* 主聊天区域 - 自然有机风格 */}
+      <div className="flex-1 rounded-3xl shadow-xl flex flex-col overflow-hidden min-h-0 border-2" style={{ backgroundColor: '#fffcf8', borderColor: '#e8e4dc' }}>
+        {/* 聊天头部 - 波浪装饰 */}
+        <div className="p-4 flex items-center justify-between shrink-0 relative" style={{ backgroundColor: '#4a5d3a' }}>
+          <div className="flex items-center gap-3">
+            <div className="w-11 h-11 rounded-full flex items-center justify-center shadow-lg" style={{ backgroundColor: '#c9dbb8' }}>
+              <Leaf className="w-6 h-6" style={{ color: '#4a5d3a' }} />
+            </div>
+            <div>
+              <h4 className="font-bold text-white">金星AI助手</h4>
+              <p className="text-[10px] font-medium" style={{ color: '#a8c896' }}>● 在线 · 金星教育智库支持</p>
+            </div>
+          </div>
+          <button 
+            className="p-2 rounded-full transition-all" 
+            style={{ color: '#c9dbb8' }}
+            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.1)'}
+            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+            onClick={() => setMessages([{ role: 'ai', text: '对话已重置 🌿\n\n有什么我可以帮你的？\n\n您可以：\n• 询问学校政策和规定\n• 生成工作文档和模板\n• 获取幼儿教育相关建议' }])}
+            title="重置对话"
+          >
+            <RefreshCcw className="w-5 h-5" />
+          </button>
+          {/* 波浪装饰 */}
+          <svg className="absolute bottom-0 left-0 right-0 w-full h-4 translate-y-full" viewBox="0 0 100 10" preserveAspectRatio="none">
+            <path d="M0,0 Q25,10 50,5 T100,8 L100,0 Z" fill="#4a5d3a" />
+          </svg>
+        </div>
+
+        {/* 聊天消息区域 */}
+        <div className="flex-1 overflow-y-auto p-6 pt-8 space-y-6" style={{ 
+          background: 'linear-gradient(180deg, #fffcf8 0%, #f8f5f0 100%)',
+          backgroundImage: `url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%234a5d3a' fill-opacity='0.02'%3E%3Cpath d='M20 20c0-5.5-4.5-10-10-10s-10 4.5-10 10 4.5 10 10 10 10-4.5 10-10zm10 0c0 5.5 4.5 10 10 10s10-4.5 10-10-4.5-10-10-10-10 4.5-10 10z'/%3E%3C/g%3E%3C/svg%3E")`
+        }}>
+          {messages.map((msg, idx) => (
+            <div key={idx} className={`flex gap-4 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
+              <div className={`w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center shadow-md ${
+                msg.role === 'user' ? '' : ''
+              }`} style={{ 
+                backgroundColor: msg.role === 'user' ? '#8b6f47' : '#c9dbb8',
+                color: msg.role === 'user' ? 'white' : '#4a5d3a'
+              }}>
+                {msg.role === 'user' ? <User className="w-5 h-5" /> : <Leaf className="w-5 h-5" />}
               </div>
-              <div>
-                <h4 className="font-bold text-slate-800 text-sm">金星AI助手</h4>
-                <p className="text-[10px] text-emerald-500 font-bold uppercase tracking-widest">金星教育智库支持</p>
+              <div className={`max-w-[75%] p-4 rounded-2xl whitespace-pre-wrap shadow-md ${
+                msg.role === 'user' ? 'rounded-tr-sm' : 'rounded-tl-sm'
+              }`} style={{ 
+                backgroundColor: msg.role === 'user' ? '#4a5d3a' : 'white',
+                color: msg.role === 'user' ? 'white' : '#3d4a32',
+                borderLeft: msg.isReport ? '4px solid #c9a962' : undefined,
+                background: msg.isReport ? 'linear-gradient(to right, #faf6f0, white)' : undefined
+              }}>
+                <p className="text-sm leading-relaxed">{msg.text}</p>
               </div>
             </div>
-            <button className="p-2 text-slate-400 hover:text-slate-600" onClick={() => setMessages([{ role: 'ai', text: '对话已重置。有什么我可以帮你的？' }])}>
-              <RefreshCcw className="w-4 h-4" />
+          ))}
+          {isLoading && (
+            <div className="flex gap-4">
+              <div className="w-10 h-10 rounded-full flex items-center justify-center shadow-md" style={{ backgroundColor: '#c9dbb8', color: '#4a5d3a' }}>
+                <Loader2 className="w-5 h-5 animate-spin" />
+              </div>
+              <div className="p-4 rounded-2xl rounded-tl-sm shadow-md" style={{ backgroundColor: 'white' }}>
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full animate-bounce" style={{ backgroundColor: '#4a5d3a' }}></div>
+                  <div className="w-2 h-2 rounded-full animate-bounce" style={{ backgroundColor: '#6b7c5c', animationDelay: '0.1s' }}></div>
+                  <div className="w-2 h-2 rounded-full animate-bounce" style={{ backgroundColor: '#8b9d7c', animationDelay: '0.2s' }}></div>
+                  <span className="text-sm ml-2" style={{ color: '#8b7355' }}>正在思考...</span>
+                </div>
+              </div>
+            </div>
+          )}
+          <div ref={chatEndRef} />
+        </div>
+
+        {/* 输入区域 */}
+        <div className="p-4 shrink-0 border-t" style={{ backgroundColor: '#f5f2ed', borderColor: '#e8e4dc' }}>
+          <div className="relative flex items-center gap-3">
+            <input 
+              type="text"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyPress={(e) => e.key === 'Enter' && handleSend()}
+              placeholder="在此输入您的问题，按 Enter 发送..."
+              className="flex-1 rounded-full px-6 py-4 pr-16 text-base outline-none transition-all border-2"
+              style={{ 
+                backgroundColor: 'white', 
+                borderColor: '#e8e4dc',
+                color: '#3d4a32'
+              }}
+              onFocus={(e) => e.currentTarget.style.borderColor = '#4a5d3a'}
+              onBlur={(e) => e.currentTarget.style.borderColor = '#e8e4dc'}
+            />
+            <button 
+              onClick={handleSend}
+              disabled={!input.trim() || isLoading}
+              className="absolute right-2 p-3 text-white rounded-full disabled:opacity-50 transition-all shadow-lg active:scale-95"
+              style={{ backgroundColor: '#4a5d3a' }}
+            >
+              <Send className="w-5 h-5" />
             </button>
           </div>
-
-          <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6">
-            {messages.map((msg, idx) => (
-              <div key={idx} className={`flex gap-4 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
-                <div className={`w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center ${
-                  msg.role === 'user' ? 'bg-slate-800 text-white' : 'bg-orange-100 text-orange-600'
-                }`}>
-                  {msg.role === 'user' ? <User className="w-5 h-5" /> : <Sparkles className="w-5 h-5" />}
-                </div>
-                <div className={`max-w-[80%] p-4 rounded-2xl whitespace-pre-wrap ${
-                  msg.role === 'user' 
-                    ? 'bg-orange-600 text-white rounded-tr-none' 
-                    : 'bg-slate-50 text-slate-800 rounded-tl-none border border-slate-100'
-                } ${msg.isReport ? 'border-l-4 border-l-orange-500 bg-orange-50/30 shadow-sm' : ''}`}>
-                  <p className="text-sm leading-relaxed">{msg.text}</p>
-                </div>
-              </div>
-            ))}
-            {isLoading && (
-              <div className="flex gap-4">
-                <div className="w-8 h-8 rounded-full bg-orange-100 flex items-center justify-center text-orange-600">
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                </div>
-                <div className="bg-slate-50 p-4 rounded-2xl rounded-tl-none border border-slate-100 animate-pulse">
-                  <div className="h-4 w-32 bg-slate-200 rounded"></div>
-                </div>
-              </div>
-            )}
-            <div ref={chatEndRef} />
-          </div>
-
-          <div className="p-4 bg-slate-50/50 border-t border-slate-100 shrink-0">
-            <div className="relative flex items-center gap-2">
-              <input 
-                type="text"
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && handleSend()}
-                placeholder="在此输入您的问题..."
-                className="flex-1 bg-white border border-slate-200 rounded-2xl px-6 py-4 pr-14 text-sm focus:ring-2 focus:ring-orange-500 outline-none transition-all"
-              />
-              <button 
-                onClick={handleSend}
-                disabled={!input.trim() || isLoading}
-                className="absolute right-2 p-3 bg-orange-600 text-white rounded-xl hover:bg-orange-700 disabled:opacity-50 transition-all shadow-md shadow-orange-100 active:scale-95"
-              >
-                <Send className="w-5 h-5" />
-              </button>
-            </div>
-            <p className="text-[10px] text-slate-400 mt-3 text-center font-medium">
-              AI 内容仅供参考，发送给家长前请仔细审核。
-            </p>
-          </div>
+          <p className="text-[10px] mt-3 text-center" style={{ color: '#8b7355' }}>
+            AI 内容仅供参考，<span className="font-medium" style={{ color: '#8b6f47' }}>发送给家长前请仔细审核</span>。
+          </p>
         </div>
       </div>
     </div>

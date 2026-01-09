@@ -5,11 +5,13 @@ import {
   AlertTriangle, Calendar, Thermometer, Clock, CheckCircle2, XCircle,
   Users, ChevronDown, ChevronRight, Bell, Send, Utensils, Moon, Smile,
   ClipboardCheck, RefreshCw, Car, BookHeart, Star, Camera, Award, Plus,
-  UserCheck, FileText, QrCode, X, Smartphone, Bug, Sparkles, BarChart3
+  UserCheck, FileText, QrCode, X, Smartphone, Bug, Sparkles, BarChart3,
+  Leaf, TreeDeciduous, Sprout
 } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { Student, User, DailyHealthRecord, AttendanceRecord, PickupRecord, GrowthRecord, DevelopmentAssessment } from '../types';
 import { supabase, isSupabaseConfigured } from '../services/supabaseClient';
+import { useToast } from '../components/Toast';
 
 // 传染病登记记录
 interface DiseaseRecord {
@@ -56,6 +58,7 @@ interface StudentsViewProps {
 type ViewMode = 'CLASS_VIEW' | 'ATTENDANCE' | 'HEALTH_CHECK' | 'PICKUP' | 'GROWTH' | 'DISEASE' | 'DISINFECT' | 'STATS';
 
 const StudentsView: React.FC<StudentsViewProps> = ({ currentUser }) => {
+  const toast = useToast();
   const [students, setStudents] = useState<Student[]>([]);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
@@ -68,6 +71,8 @@ const StudentsView: React.FC<StudentsViewProps> = ({ currentUser }) => {
   const [healthRecordModal, setHealthRecordModal] = useState(false);
   const [todayRecords, setTodayRecords] = useState<Record<string, DailyHealthRecord>>({});
   const [attendanceRecords, setAttendanceRecords] = useState<Record<string, AttendanceRecord>>({});
+  const [pendingAttendance, setPendingAttendance] = useState<Record<string, AttendanceRecord['status']>>({});
+  const [showAttendanceConfirm, setShowAttendanceConfirm] = useState(false);
   const [pickupRecords, setPickupRecords] = useState<PickupRecord[]>([]);
   const [growthRecords, setGrowthRecords] = useState<GrowthRecord[]>([]);
   const [isPickupModalOpen, setIsPickupModalOpen] = useState(false);
@@ -213,7 +218,64 @@ const StudentsView: React.FC<StudentsViewProps> = ({ currentUser }) => {
     return growthRecords.filter(r => r.studentId === studentId);
   };
 
-  // 保存考勤
+  // 初始化考勤（默认全勤）
+  const initAttendance = () => {
+    const initial: Record<string, AttendanceRecord['status']> = {};
+    students.forEach(s => {
+      // 如果已有记录，保留原状态；否则默认出勤
+      initial[s.id] = attendanceRecords[s.id]?.status || 'present';
+    });
+    setPendingAttendance(initial);
+  };
+
+  // 更新临时考勤状态（点击按钮时）
+  const updatePendingAttendance = (studentId: string, status: AttendanceRecord['status']) => {
+    setPendingAttendance(prev => ({ ...prev, [studentId]: status }));
+  };
+
+  // 确认提交考勤
+  const confirmAttendance = () => {
+    try {
+      const now = new Date();
+      const timeStr = now.toLocaleTimeString();
+      
+      Object.entries(pendingAttendance).forEach(([studentId, status]) => {
+        const record: AttendanceRecord = {
+          id: `${studentId}_${today}`,
+          studentId,
+          date: today,
+          status,
+          checkInTime: status === 'present' || status === 'late' ? timeStr : undefined,
+          recordedBy: currentUser.name,
+          recordedAt: now.toISOString()
+        };
+        
+        attendanceRecords[studentId] = record;
+      });
+      
+      setAttendanceRecords({ ...attendanceRecords });
+      localStorage.setItem(`kt_attendance_${today}`, JSON.stringify(attendanceRecords));
+      
+      // 更新学生状态
+      const updatedStudents = students.map(s => ({
+        ...s,
+        status: pendingAttendance[s.id] || s.status,
+        todayAttendance: attendanceRecords[s.id]
+      }));
+      setStudents(updatedStudents);
+      localStorage.setItem('kt_students_local', JSON.stringify(updatedStudents));
+      
+      const presentCount = Object.values(pendingAttendance).filter(s => s === 'present').length;
+      const totalCount = Object.keys(pendingAttendance).length;
+      toast.success('考勤提交成功', `已记录 ${totalCount} 人考勤，出勤 ${presentCount} 人`);
+      setShowAttendanceConfirm(false);
+    } catch (err) {
+      toast.error('考勤提交失败', '请稍后重试');
+      console.error('考勤提交错误:', err);
+    }
+  };
+
+  // 保存考勤（保留原函数用于其他地方）
   const saveAttendance = (studentId: string, status: AttendanceRecord['status']) => {
     const record: AttendanceRecord = {
       id: `${studentId}_${today}`,
@@ -417,55 +479,65 @@ const StudentsView: React.FC<StudentsViewProps> = ({ currentUser }) => {
   };
 
   return (
-    <div className="space-y-6">
-      {/* 顶部统计和操作栏 */}
+    <div className="space-y-6 relative">
+      {/* 装饰元素 */}
+      <div className="absolute top-0 right-0 w-32 h-32 opacity-5 pointer-events-none">
+        <TreeDeciduous className="w-full h-full text-[#4a5d3a]" />
+      </div>
+
+      {/* 顶部统计和操作栏 - 自然风格 */}
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
-        <div>
-          <h1 className="text-3xl font-black text-slate-800 font-brand">幼儿档案管理</h1>
-          <p className="flex items-center gap-2 text-slate-400 text-sm mt-1">
-            <Globe className="w-4 h-4 text-emerald-500" />
-            {currentUser.role === 'SUPER_ADMIN' ? '全园管理' : currentUser.campus} · {today}
-          </p>
+        <div className="flex items-center gap-4">
+          <div className="p-3 rounded-2xl shadow-lg" style={{ backgroundColor: '#4a5d3a' }}>
+            <Users className="w-8 h-8 text-[#c9dbb8]" />
+          </div>
+          <div>
+            <h1 className="text-2xl md:text-3xl font-bold" style={{ color: '#4a5d3a', fontFamily: "'Noto Serif SC', serif" }}>幼儿档案管理</h1>
+            <p className="flex items-center gap-2 text-sm mt-1" style={{ color: '#8b7355' }}>
+              <Leaf className="w-4 h-4" style={{ color: '#4a5d3a' }} />
+              {currentUser.role === 'SUPER_ADMIN' ? '全园管理' : currentUser.campus} · {today}
+            </p>
+          </div>
         </div>
         
         <div className="flex items-center gap-3">
-          <button onClick={() => setIsModalOpen(true)} className="bg-amber-600 text-white px-5 py-2.5 rounded-xl font-bold shadow-lg hover:bg-amber-700 flex items-center gap-2 transition-all text-sm">
+          <button onClick={() => setIsModalOpen(true)} className="text-white px-5 py-2.5 rounded-xl font-semibold shadow-lg hover:opacity-90 flex items-center gap-2 transition-all text-sm" style={{ backgroundColor: '#4a5d3a' }}>
             <UserPlus className="w-4 h-4" /> 录入新生
           </button>
-          <button onClick={syncAllToParents} className="bg-blue-600 text-white px-5 py-2.5 rounded-xl font-bold shadow-lg hover:bg-blue-700 flex items-center gap-2 transition-all text-sm">
+          <button onClick={syncAllToParents} className="text-white px-5 py-2.5 rounded-xl font-semibold shadow-lg hover:opacity-90 flex items-center gap-2 transition-all text-sm" style={{ backgroundColor: '#c9a962' }}>
             <Send className="w-4 h-4" /> 同步家长
           </button>
         </div>
       </div>
 
-      {/* 今日统计卡片 */}
+      {/* 今日统计卡片 - 自然风格 */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
+        <div className="p-4 rounded-2xl border-2 shadow-sm" style={{ backgroundColor: 'white', borderColor: '#e8e4dc' }}>
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center">
-              <Users className="w-5 h-5 text-blue-600" />
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ backgroundColor: '#4a5d3a20' }}>
+              <Users className="w-5 h-5" style={{ color: '#4a5d3a' }} />
             </div>
             <div>
-              <p className="text-xs text-slate-400 font-bold">在园总数</p>
-              <p className="text-2xl font-black text-slate-800">{stats.total}</p>
+              <p className="text-xs font-semibold" style={{ color: '#8b7355' }}>在园总数</p>
+              <p className="text-2xl font-bold" style={{ color: '#4a5d3a' }}>{stats.total}</p>
             </div>
           </div>
         </div>
-        <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
+        <div className="p-4 rounded-2xl border-2 shadow-sm" style={{ backgroundColor: 'white', borderColor: '#e8e4dc' }}>
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center">
-              <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ backgroundColor: '#6b7c5c20' }}>
+              <CheckCircle2 className="w-5 h-5" style={{ color: '#6b7c5c' }} />
             </div>
             <div>
-              <p className="text-xs text-slate-400 font-bold">今日出勤</p>
-              <p className="text-2xl font-black text-emerald-600">{stats.present}</p>
+              <p className="text-xs font-semibold" style={{ color: '#8b7355' }}>今日出勤</p>
+              <p className="text-2xl font-bold" style={{ color: '#6b7c5c' }}>{stats.present}</p>
             </div>
           </div>
         </div>
-        <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
+        <div className="p-4 rounded-2xl border-2 shadow-sm" style={{ backgroundColor: 'white', borderColor: '#e8e4dc' }}>
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-orange-100 flex items-center justify-center">
-              <XCircle className="w-5 h-5 text-orange-600" />
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ backgroundColor: '#c9a96220' }}>
+              <XCircle className="w-5 h-5" style={{ color: '#c9a962' }} />
             </div>
             <div>
               <p className="text-xs text-slate-400 font-bold">请假/缺勤</p>
@@ -492,7 +564,7 @@ const StudentsView: React.FC<StudentsViewProps> = ({ currentUser }) => {
           <button onClick={() => setViewMode('CLASS_VIEW')} className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${viewMode === 'CLASS_VIEW' ? 'bg-amber-600 text-white shadow-lg' : 'bg-white text-slate-400 border border-slate-100'}`}>
             <Users className="w-4 h-4 inline mr-1" />班级视图
           </button>
-          <button onClick={() => setViewMode('ATTENDANCE')} className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${viewMode === 'ATTENDANCE' ? 'bg-emerald-600 text-white shadow-lg' : 'bg-white text-slate-400 border border-slate-100'}`}>
+          <button onClick={() => { setViewMode('ATTENDANCE'); initAttendance(); }} className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${viewMode === 'ATTENDANCE' ? 'bg-emerald-600 text-white shadow-lg' : 'bg-white text-slate-400 border border-slate-100'}`}>
             <ClipboardCheck className="w-4 h-4 inline mr-1" />快速考勤
           </button>
           <button onClick={() => setViewMode('HEALTH_CHECK')} className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${viewMode === 'HEALTH_CHECK' ? 'bg-rose-600 text-white shadow-lg' : 'bg-white text-slate-400 border border-slate-100'}`}>
@@ -610,56 +682,93 @@ const StudentsView: React.FC<StudentsViewProps> = ({ currentUser }) => {
       {/* 快速考勤视图 */}
       {viewMode === 'ATTENDANCE' && (
         <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden">
-          <div className="px-6 py-4 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
-            <h3 className="font-black text-slate-800">今日考勤 · {today}</h3>
-            <button onClick={() => {
-              students.forEach(s => {
-                if (!attendanceRecords[s.id]) saveAttendance(s.id, 'present');
-              });
-            }} className="text-sm text-emerald-600 font-bold hover:underline">
-              一键全勤 ✓
-            </button>
+          <div className="px-6 py-4 bg-gradient-to-r from-emerald-50 to-teal-50 border-b border-emerald-100 flex items-center justify-between flex-wrap gap-3">
+            <div>
+              <h3 className="font-black text-emerald-800">今日考勤 · {today}</h3>
+              <p className="text-xs text-emerald-600 mt-1">
+                💡 默认全勤，只需标记缺勤/请假的学生，确认后提交
+              </p>
+            </div>
+            <div className="flex items-center gap-3">
+              {/* 统计信息 */}
+              <div className="flex gap-2 text-xs">
+                <span className="px-2 py-1 bg-emerald-100 text-emerald-700 rounded-lg font-bold">
+                  出勤 {Object.values(pendingAttendance).filter(s => s === 'present').length}
+                </span>
+                <span className="px-2 py-1 bg-amber-100 text-amber-700 rounded-lg font-bold">
+                  迟到 {Object.values(pendingAttendance).filter(s => s === 'late').length}
+                </span>
+                <span className="px-2 py-1 bg-rose-100 text-rose-700 rounded-lg font-bold">
+                  请假 {Object.values(pendingAttendance).filter(s => s === 'sick_leave').length}
+                </span>
+                <span className="px-2 py-1 bg-slate-100 text-slate-700 rounded-lg font-bold">
+                  缺勤 {Object.values(pendingAttendance).filter(s => s === 'absent').length}
+                </span>
+              </div>
+              {/* 确认提交按钮 */}
+              <button 
+                onClick={() => setShowAttendanceConfirm(true)}
+                className="px-5 py-2 bg-emerald-600 text-white font-bold rounded-xl shadow-lg shadow-emerald-200 hover:bg-emerald-700 transition-all flex items-center gap-2"
+              >
+                <CheckCircle2 className="w-4 h-4" />
+                确认提交
+              </button>
+            </div>
           </div>
           
           {allClasses.map(className => (
             <div key={className} className="border-b border-slate-50 last:border-0">
               <div className="px-6 py-3 bg-slate-50/50 font-bold text-slate-600 text-sm flex items-center gap-2">
                 <Users className="w-4 h-4" /> {className}
+                <span className="text-xs text-slate-400 ml-2">
+                  ({groupedByClass[className]?.length || 0}人)
+                </span>
               </div>
               <div className="px-6 py-3 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                 {groupedByClass[className]?.map(student => {
-                  const attendance = attendanceRecords[student.id];
+                  const status = pendingAttendance[student.id] || 'present';
+                  const isModified = status !== 'present';
                   return (
-                    <div key={student.id} className="flex items-center justify-between p-3 rounded-xl bg-slate-50 hover:bg-slate-100 transition-all">
+                    <div key={student.id} className={`flex items-center justify-between p-3 rounded-xl transition-all ${
+                      isModified ? 'bg-amber-50 ring-2 ring-amber-200' : 'bg-slate-50 hover:bg-slate-100'
+                    }`}>
                       <div className="flex items-center gap-3">
                         <img src={student.avatar} className="w-10 h-10 rounded-xl" />
                         <div>
                           <p className="font-bold text-slate-800">{student.name}</p>
-                          <p className="text-xs text-slate-400">{attendance?.checkInTime || '未签到'}</p>
+                          <p className={`text-xs ${isModified ? 'text-amber-600 font-bold' : 'text-emerald-500'}`}>
+                            {status === 'present' ? '✓ 出勤' : 
+                             status === 'late' ? '⏰ 迟到' : 
+                             status === 'sick_leave' ? '🏥 请假' : '✗ 缺勤'}
+                          </p>
                         </div>
                       </div>
                       <div className="flex gap-1">
                         <button 
-                          onClick={() => saveAttendance(student.id, 'present')}
-                          className={`p-2 rounded-lg transition-all ${attendance?.status === 'present' ? 'bg-emerald-500 text-white' : 'bg-white text-emerald-600 border border-emerald-200 hover:bg-emerald-50'}`}
+                          onClick={() => updatePendingAttendance(student.id, 'present')}
+                          className={`p-2 rounded-lg transition-all ${status === 'present' ? 'bg-emerald-500 text-white' : 'bg-white text-emerald-600 border border-emerald-200 hover:bg-emerald-50'}`}
+                          title="出勤"
                         >
                           <CheckCircle2 className="w-4 h-4" />
                         </button>
                         <button 
-                          onClick={() => saveAttendance(student.id, 'late')}
-                          className={`p-2 rounded-lg transition-all ${attendance?.status === 'late' ? 'bg-amber-500 text-white' : 'bg-white text-amber-600 border border-amber-200 hover:bg-amber-50'}`}
+                          onClick={() => updatePendingAttendance(student.id, 'late')}
+                          className={`p-2 rounded-lg transition-all ${status === 'late' ? 'bg-amber-500 text-white' : 'bg-white text-amber-600 border border-amber-200 hover:bg-amber-50'}`}
+                          title="迟到"
                         >
                           <Clock className="w-4 h-4" />
                         </button>
                         <button 
-                          onClick={() => saveAttendance(student.id, 'sick_leave')}
-                          className={`p-2 rounded-lg transition-all ${attendance?.status === 'sick_leave' ? 'bg-rose-500 text-white' : 'bg-white text-rose-600 border border-rose-200 hover:bg-rose-50'}`}
+                          onClick={() => updatePendingAttendance(student.id, 'sick_leave')}
+                          className={`p-2 rounded-lg transition-all ${status === 'sick_leave' ? 'bg-rose-500 text-white' : 'bg-white text-rose-600 border border-rose-200 hover:bg-rose-50'}`}
+                          title="请假"
                         >
                           <Heart className="w-4 h-4" />
                         </button>
                         <button 
-                          onClick={() => saveAttendance(student.id, 'absent')}
-                          className={`p-2 rounded-lg transition-all ${attendance?.status === 'absent' ? 'bg-slate-500 text-white' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'}`}
+                          onClick={() => updatePendingAttendance(student.id, 'absent')}
+                          className={`p-2 rounded-lg transition-all ${status === 'absent' ? 'bg-slate-500 text-white' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'}`}
+                          title="缺勤"
                         >
                           <XCircle className="w-4 h-4" />
                         </button>
@@ -670,6 +779,84 @@ const StudentsView: React.FC<StudentsViewProps> = ({ currentUser }) => {
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* 考勤确认弹窗 */}
+      {showAttendanceConfirm && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden">
+            <div className="p-6 bg-emerald-50 border-b border-emerald-100">
+              <h3 className="text-xl font-black text-emerald-800 flex items-center gap-2">
+                <CheckCircle2 className="w-6 h-6" />
+                确认提交考勤
+              </h3>
+            </div>
+            <div className="p-6 space-y-4">
+              <p className="text-slate-600">确认提交今日（{today}）的考勤记录？</p>
+              
+              <div className="bg-slate-50 rounded-xl p-4 space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span className="text-slate-500">出勤人数</span>
+                  <span className="font-bold text-emerald-600">{Object.values(pendingAttendance).filter(s => s === 'present').length} 人</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-slate-500">迟到人数</span>
+                  <span className="font-bold text-amber-600">{Object.values(pendingAttendance).filter(s => s === 'late').length} 人</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-slate-500">请假人数</span>
+                  <span className="font-bold text-rose-600">{Object.values(pendingAttendance).filter(s => s === 'sick_leave').length} 人</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-slate-500">缺勤人数</span>
+                  <span className="font-bold text-slate-600">{Object.values(pendingAttendance).filter(s => s === 'absent').length} 人</span>
+                </div>
+                <div className="border-t border-slate-200 pt-2 mt-2 flex justify-between text-sm">
+                  <span className="text-slate-500">总人数</span>
+                  <span className="font-bold text-slate-800">{Object.keys(pendingAttendance).length} 人</span>
+                </div>
+              </div>
+
+              {/* 显示非出勤名单 */}
+              {Object.entries(pendingAttendance).filter(([_, s]) => s !== 'present').length > 0 && (
+                <div className="bg-amber-50 rounded-xl p-4">
+                  <p className="text-xs font-bold text-amber-700 mb-2">⚠️ 非出勤学生：</p>
+                  <div className="flex flex-wrap gap-1">
+                    {Object.entries(pendingAttendance)
+                      .filter(([_, s]) => s !== 'present')
+                      .map(([id, status]) => {
+                        const student = students.find(s => s.id === id);
+                        return (
+                          <span key={id} className={`text-xs px-2 py-1 rounded-full font-bold ${
+                            status === 'late' ? 'bg-amber-100 text-amber-700' :
+                            status === 'sick_leave' ? 'bg-rose-100 text-rose-700' :
+                            'bg-slate-100 text-slate-700'
+                          }`}>
+                            {student?.name}
+                          </span>
+                        );
+                      })}
+                  </div>
+                </div>
+              )}
+            </div>
+            <div className="p-6 bg-slate-50 flex gap-3 justify-end">
+              <button 
+                onClick={() => setShowAttendanceConfirm(false)}
+                className="px-5 py-2 bg-white border border-slate-200 text-slate-600 font-bold rounded-xl hover:bg-slate-50 transition-all"
+              >
+                取消
+              </button>
+              <button 
+                onClick={confirmAttendance}
+                className="px-5 py-2 bg-emerald-600 text-white font-bold rounded-xl shadow-lg shadow-emerald-200 hover:bg-emerald-700 transition-all flex items-center gap-2"
+              >
+                <CheckCircle2 className="w-4 h-4" />
+                确认提交
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

@@ -1,7 +1,10 @@
 /**
  * 统一数据存储服务
  * 所有可编辑数据的电子留存和操作日志
+ * 支持 Supabase 云端同步
  */
+
+import { supabase, isSupabaseConfigured } from './supabaseClient';
 
 // 操作日志类型
 export interface OperationLog {
@@ -81,8 +84,21 @@ export interface PendingUpload {
   status: 'PENDING' | 'CONFIRMED' | 'CANCELLED';
 }
 
+// 字段转换：snake_case -> camelCase
+function toCamelCase(obj: any): any {
+  if (Array.isArray(obj)) return obj.map(toCamelCase);
+  if (obj !== null && typeof obj === 'object') {
+    return Object.keys(obj).reduce((acc, key) => {
+      const camelKey = key.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
+      acc[camelKey] = toCamelCase(obj[key]);
+      return acc;
+    }, {} as any);
+  }
+  return obj;
+}
+
 /**
- * 获取存储数据
+ * 获取存储数据（优先本地，支持云端回退）
  */
 export function getData<T>(key: string, defaultValue: T[] = []): T[] {
   try {
@@ -95,7 +111,113 @@ export function getData<T>(key: string, defaultValue: T[] = []): T[] {
 }
 
 /**
- * 保存数据（自动同步到阿里云OSS）
+ * 从云端获取数据（用于初始化）
+ */
+export async function getDataFromCloud<T>(key: string): Promise<T[] | null> {
+  if (!isSupabaseConfigured) return null;
+  
+  const tableName = SUPABASE_TABLE_MAPPING[key];
+  if (!tableName) return null;
+  
+  try {
+    const { data, error } = await supabase
+      .from(tableName)
+      .select('*')
+      .order('created_at', { ascending: false });
+    
+    if (error) {
+      console.log(`[Supabase] 从 ${tableName} 加载失败:`, error.message);
+      return null;
+    }
+    
+    // 转换为 camelCase
+    const localData = toCamelCase(data || []);
+    console.log(`☁️ [Supabase] 从 ${tableName} 加载了 ${localData.length} 条数据`);
+    return localData;
+  } catch (err) {
+    return null;
+  }
+}
+
+/**
+ * 初始化数据（云端优先，本地备份）
+ */
+export async function initializeData<T>(key: string, defaultValue: T[] = []): Promise<T[]> {
+  // 1. 尝试从云端加载
+  const cloudData = await getDataFromCloud<T>(key);
+  
+  if (cloudData && cloudData.length > 0) {
+    // 云端有数据，同步到本地
+    localStorage.setItem(key, JSON.stringify(cloudData));
+    return cloudData;
+  }
+  
+  // 2. 云端无数据，使用本地数据
+  const localData = getData<T>(key, defaultValue);
+  
+  // 3. 如果本地有数据，上传到云端
+  if (localData.length > 0) {
+    syncToSupabase(key, localData as any[]).catch(() => {});
+  }
+  
+  return localData;
+}
+
+// Supabase 表名映射（完整版）
+const SUPABASE_TABLE_MAPPING: Record<string, string> = {
+  // 幼儿档案
+  [STORAGE_KEYS.STUDENTS]: 'students',
+  [STORAGE_KEYS.HEALTH_RECORDS]: 'health_records',
+  [STORAGE_KEYS.ATTENDANCE_RECORDS]: 'attendance_records',
+  [STORAGE_KEYS.PICKUP_RECORDS]: 'pickup_records',
+  [STORAGE_KEYS.GROWTH_RECORDS]: 'growth_records',
+  
+  // 教职工
+  [STORAGE_KEYS.STAFF]: 'staff',
+  [STORAGE_KEYS.SCHEDULES]: 'staff_schedules',
+  
+  // 食谱管理
+  [STORAGE_KEYS.MEAL_PLANS]: 'meal_plans',
+  [STORAGE_KEYS.PROCUREMENT_RECORDS]: 'procurement_records',
+  
+  // 家园共育
+  [STORAGE_KEYS.ANNOUNCEMENTS]: 'announcements',
+  [STORAGE_KEYS.MESSAGES]: 'chat_messages',
+  
+  // 课程计划
+  [STORAGE_KEYS.CURRICULUM]: 'curriculum',
+  
+  // 安全管理
+  [STORAGE_KEYS.VISITORS]: 'visitors',
+  [STORAGE_KEYS.FIRE_CHECKS]: 'fire_checks',
+  [STORAGE_KEYS.PATROLS]: 'patrols',
+  [STORAGE_KEYS.DISINFECTION]: 'disinfection_records',
+  
+  // 资料管理
+  [STORAGE_KEYS.DOCUMENTS]: 'documents',
+  
+  // 操作日志
+  [STORAGE_KEYS.OPERATION_LOGS]: 'operation_logs',
+};
+
+// 字段转换：camelCase -> snake_case
+function toSnakeCase(obj: any): any {
+  if (Array.isArray(obj)) return obj.map(toSnakeCase);
+  if (obj !== null && typeof obj === 'object') {
+    return Object.keys(obj).reduce((acc, key) => {
+      const snakeKey = key.replace(/([A-Z])/g, '_$1').toLowerCase();
+      acc[snakeKey] = toSnakeCase(obj[key]);
+      return acc;
+    }, {} as any);
+  }
+  return obj;
+}
+
+/**
+ * 保存数据（自动同步到云端）
+ * 1. 保存到本地 localStorage
+ * 2. 同步到阿里云 OSS
+ * 3. 同步到 Supabase（如果配置了）
  */
 export function saveData<T>(key: string, data: T[]): boolean {
   try {
@@ -108,10 +230,46 @@ export function saveData<T>(key: string, data: T[]): boolean {
       // 同步服务不可用时静默失败
     });
     
+    // 自动同步到 Supabase（异步，不阻塞）
+    syncToSupabase(key, data).catch((err) => {
+      console.log(`[Supabase] ${key} 同步失败:`, err);
+    });
+    
     return true;
   } catch (e) {
     console.error(`Error saving ${key}:`, e);
     return false;
+  }
+}
+
+/**
+ * 同步数据到 Supabase
+ */
+async function syncToSupabase<T extends { id?: string }>(key: string, data: T[]): Promise<void> {
+  if (!isSupabaseConfigured) return;
+  
+  const tableName = SUPABASE_TABLE_MAPPING[key];
+  if (!tableName) {
+    // 该数据类型不需要同步到 Supabase
+    return;
+  }
+  
+  try {
+    // 转换为 snake_case
+    const cloudData = data.map(item => toSnakeCase(item));
+    
+    // 使用 upsert 批量更新
+    const { error } = await supabase
+      .from(tableName)
+      .upsert(cloudData, { onConflict: 'id' });
+    
+    if (error) {
+      console.log(`[Supabase] ${key} -> ${tableName} 同步失败:`, error.message);
+    } else {
+      console.log(`☁️ [Supabase] ${key} -> ${tableName} 同步成功 (${data.length} 条)`);
+    }
+  } catch (err) {
+    // 静默失败，不影响本地操作
   }
 }
 

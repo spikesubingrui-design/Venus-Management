@@ -13,14 +13,22 @@ CREATE TABLE IF NOT EXISTS users (
   id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
   phone VARCHAR(11) UNIQUE NOT NULL,
   name VARCHAR(100) NOT NULL,
+  password_hash TEXT NOT NULL,  -- 密码哈希
   role VARCHAR(20) NOT NULL CHECK (role IN ('SUPER_ADMIN', 'ADMIN', 'TEACHER', 'KITCHEN', 'PARENT')),
   campus VARCHAR(100),
   campus_grade VARCHAR(20) CHECK (campus_grade IN ('PHUI', 'HIGH_END', 'JIU_YOU', 'SHIQI_YOU')),
   avatar TEXT,
   class_id VARCHAR(50),
+  is_active BOOLEAN DEFAULT TRUE,  -- 账号是否激活
+  last_login_at TIMESTAMP WITH TIME ZONE,  -- 最后登录时间
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
+
+-- 如果表已存在，添加新字段
+ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login_at TIMESTAMP WITH TIME ZONE;
 
 -- 创建更新时间触发器
 CREATE OR REPLACE FUNCTION update_updated_at_column()
@@ -58,10 +66,18 @@ CREATE INDEX idx_verification_codes_expires ON verification_codes(expires_at);
 CREATE TABLE IF NOT EXISTS authorized_phones (
   id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
   phone VARCHAR(11) UNIQUE NOT NULL,
+  campus VARCHAR(100),  -- 指定园区
+  role VARCHAR(20) DEFAULT 'TEACHER',  -- 预设角色
   added_by UUID REFERENCES users(id),
   notes TEXT,
+  is_used BOOLEAN DEFAULT FALSE,  -- 是否已被注册使用
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
+
+-- 如果表已存在，添加新字段
+ALTER TABLE authorized_phones ADD COLUMN IF NOT EXISTS campus VARCHAR(100);
+ALTER TABLE authorized_phones ADD COLUMN IF NOT EXISTS role VARCHAR(20) DEFAULT 'TEACHER';
+ALTER TABLE authorized_phones ADD COLUMN IF NOT EXISTS is_used BOOLEAN DEFAULT FALSE;
 
 -- =====================================================
 -- 4. 园区配置表
