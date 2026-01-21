@@ -184,16 +184,24 @@ function generateId(prefix: string): string {
   return `${prefix}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 }
 
-// 生成教职工头像（简约可爱风格）
+// 生成教职工头像（使用 ui-avatars 服务，稳定可靠）
 function generateStaffAvatar(name: string, gender: string): string {
-  // 使用 notionists 风格，简约友好
-  return `https://api.dicebear.com/7.x/notionists/svg?seed=${encodeURIComponent(name)}&backgroundColor=b6e3f4,c0aede,d1d4f9,ffd5dc,ffdfbf`;
+  // 根据性别选择不同颜色
+  const bgColors = gender === '男' 
+    ? ['4A90A4', '5B8C5A', '6B7280', '4F46E5'] 
+    : ['E879A0', 'A78BFA', 'F59E0B', 'EC4899'];
+  const bgColor = bgColors[Math.floor(Math.random() * bgColors.length)];
+  return `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=${bgColor}&color=fff&size=128&font-size=0.4&bold=true`;
 }
 
-// 生成幼儿头像（简约可爱风格）
+// 生成幼儿头像（使用 ui-avatars 服务，稳定可靠）
 function generateChildAvatar(name: string, gender: string): string {
-  // 使用 notionists 风格，简约可爱
-  return `https://api.dicebear.com/7.x/notionists/svg?seed=${encodeURIComponent(name)}&backgroundColor=b6e3f4,c0aede,d1d4f9,ffd5dc,ffdfbf`;
+  // 幼儿使用更鲜艳可爱的颜色
+  const bgColors = gender === '男' 
+    ? ['60A5FA', '34D399', '818CF8', '38BDF8'] 
+    : ['F472B6', 'FB923C', 'A78BFA', 'FBBF24'];
+  const bgColor = bgColors[Math.floor(Math.random() * bgColors.length)];
+  return `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=${bgColor}&color=fff&size=128&font-size=0.45&bold=true&rounded=true`;
 }
 
 // 转换教职工数据为系统格式
@@ -239,7 +247,7 @@ function convertStudentData(): Student[] {
  */
 export function initializeData(): { staffCount: number; studentCount: number } {
   // 检查是否已经导入过（使用标记）
-  const importFlag = localStorage.getItem('kt_data_imported_v6');
+  const importFlag = localStorage.getItem('kt_data_imported_v7');
   
   if (importFlag === 'true') {
     console.log('[DataInit] 数据已导入，跳过初始化');
@@ -259,7 +267,7 @@ export function initializeData(): { staffCount: number; studentCount: number } {
   localStorage.setItem('kt_teachers', JSON.stringify(newStaff));          // StaffView 使用
   
   // 设置导入标记
-  localStorage.setItem('kt_data_imported_v6', 'true');
+  localStorage.setItem('kt_data_imported_v7', 'true');
   
   logOperation(
     'system',

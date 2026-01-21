@@ -152,7 +152,7 @@ const StaffView: React.FC<StaffViewProps> = ({ currentUser }) => {
         name: fd.get('name') as string,
         role: fd.get('role') as string,
         phone: fd.get('phone') as string,
-        avatar: `https://api.dicebear.com/7.x/notionists/svg?seed=${encodeURIComponent(fd.get('name') as string)}&backgroundColor=b6e3f4,c0aede,d1d4f9,ffd5dc,ffdfbf`,
+        avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(fd.get('name') as string)}&background=4A90A4&color=fff&size=128&font-size=0.4&bold=true`,
         assignedClass: fd.get('assignedClass') as string,
         performanceScore: 90 + Math.floor(Math.random() * 10),
         campus: fd.get('campus') as string,
