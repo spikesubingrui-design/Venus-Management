@@ -45,7 +45,7 @@ const DataCockpitView: React.FC<DataCockpitViewProps> = ({ currentUser, onNaviga
     setIsLoading(true);
     
     // 加载学生
-    const savedStudents = localStorage.getItem('kt_students_local');
+    const savedStudents = localStorage.getItem('kt_students');
     if (savedStudents) setStudents(JSON.parse(savedStudents));
     
     // 加载教师
@@ -222,7 +222,7 @@ const DataCockpitView: React.FC<DataCockpitViewProps> = ({ currentUser, onNaviga
           {/* 最后更新时间 */}
           <div className="text-xs text-slate-500 flex items-center gap-1">
             <Clock className="w-3 h-3" />
-            {lastUpdate.toLocaleTimeString()}
+            {lastUpdate.toLocaleTimeString('zh-CN')}
           </div>
         </div>
       </div>

@@ -25,6 +25,11 @@ export interface OperationLog {
 
 // 存储键名常量
 export const STORAGE_KEYS = {
+  // 用户管理
+  ALL_USERS: 'kt_all_users',
+  USER_PASSWORDS: 'kt_user_passwords',
+  AUTHORIZED_PHONES: 'kt_authorized_phones',
+  
   // 幼儿档案
   STUDENTS: 'kt_students',
   HEALTH_RECORDS: 'kt_health_records',

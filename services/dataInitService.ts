@@ -255,7 +255,7 @@ export function initializeData(): { staffCount: number; studentCount: number } {
   saveData(STORAGE_KEYS.STUDENTS, newStudents);
   
   // 同时保存到视图组件使用的存储键
-  localStorage.setItem('kt_students_local', JSON.stringify(newStudents));  // StudentsView 使用
+  localStorage.setItem('kt_students', JSON.stringify(newStudents));  // StudentsView 使用
   localStorage.setItem('kt_teachers', JSON.stringify(newStaff));          // StaffView 使用
   
   // 设置导入标记

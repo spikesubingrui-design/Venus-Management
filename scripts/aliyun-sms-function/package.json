@@ -1,0 +1,9 @@
+{
+  "name": "aliyun-sms-function",
+  "version": "1.0.0",
+  "description": "阿里云短信发送云函数",
+  "main": "index.js",
+  "dependencies": {
+    "@alicloud/pop-core": "^1.7.13"
+  }
+}

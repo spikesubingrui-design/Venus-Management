@@ -55,7 +55,7 @@ const CommunicationView: React.FC<CommunicationViewProps> = ({ currentUser }) =>
 
   useEffect(() => {
     // 加载学生数据生成联系人列表
-    const savedStudents = localStorage.getItem('kt_students_local');
+    const savedStudents = localStorage.getItem('kt_students');
     if (savedStudents) {
       const studentList: Student[] = JSON.parse(savedStudents);
       setStudents(studentList);

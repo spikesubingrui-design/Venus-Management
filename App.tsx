@@ -124,7 +124,7 @@ const App: React.FC = () => {
     { id: AppView.KITCHEN, label: '营养厨房', icon: UtensilsCrossed, roles: ['SUPER_ADMIN', 'ADMIN', 'KITCHEN'] },
     { id: AppView.SAFETY, label: '安全工作', icon: Shield, roles: ['SUPER_ADMIN', 'ADMIN'] },
     { id: AppView.STAFF, label: '教职工管理', icon: UserSquare2, roles: ['SUPER_ADMIN', 'ADMIN'] },
-    { id: AppView.FINANCE, label: '收费管理', icon: Calculator, roles: ['SUPER_ADMIN', 'ADMIN'] },
+    { id: AppView.FINANCE, label: '收费管理', icon: Calculator, roles: ['FINANCE'] },
     { id: AppView.MAINTENANCE, label: '维修报修', icon: Wrench, roles: ['SUPER_ADMIN', 'ADMIN'] },
     { id: AppView.ANOMALY_MONITOR, label: '异常监控', icon: AlertTriangle, roles: ['SUPER_ADMIN', 'ADMIN'] },
     { id: AppView.COMMUNICATION, label: '家园共育', icon: MessageSquare, roles: ['SUPER_ADMIN', 'ADMIN', 'TEACHER', 'PARENT'] },

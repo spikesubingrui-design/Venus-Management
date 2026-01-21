@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { User } from '../types';
 import { hasPermission } from '../services/permissionService';
+import { ChineseDatePicker } from '../components/ChineseDatePicker';
 
 interface CurriculumViewProps {
   currentUser: User;
@@ -327,7 +328,7 @@ const CurriculumView: React.FC<CurriculumViewProps> = ({ currentUser }) => {
               {isAdding && (
                 <form onSubmit={addActivity} className="bg-orange-50 p-6 rounded-2xl border-2 border-orange-200 animate-in slide-in-from-top-2">
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
-                    <input required name="time" type="time" className="px-3 py-2 rounded-lg border border-orange-200 outline-none focus:ring-2 focus:ring-orange-500" />
+                    <input required name="time" type="time" lang="zh-CN" className="px-3 py-2 rounded-lg border border-orange-200 outline-none focus:ring-2 focus:ring-orange-500" />
                     <input required name="activity" placeholder="活动名称..." className="px-3 py-2 rounded-lg border border-orange-200 outline-none focus:ring-2 focus:ring-orange-500 md:col-span-2" />
                     <select name="type" className="px-3 py-2 rounded-lg border border-orange-200 outline-none bg-white">
                       <option value="play">户外/游戏</option>
@@ -457,7 +458,7 @@ const CurriculumView: React.FC<CurriculumViewProps> = ({ currentUser }) => {
                     <p className="text-sm text-slate-400">{photo.description}</p>
                     <div className="flex items-center gap-3 mt-2">
                       <span className="text-xs text-slate-400">{photo.className}</span>
-                      <span className="text-xs text-slate-400">{new Date(photo.capturedAt).toLocaleDateString()}</span>
+                      <span className="text-xs text-slate-400">{new Date(photo.capturedAt).toLocaleDateString('zh-CN')}</span>
                       <div className="flex items-center gap-1 text-pink-500">
                         <Heart className="w-3 h-3" />
                         <span className="text-xs font-bold">{photo.likes}</span>
@@ -619,7 +620,7 @@ const CurriculumView: React.FC<CurriculumViewProps> = ({ currentUser }) => {
               </div>
               
               <div className="grid grid-cols-2 gap-4">
-                <input type="date" name="date" defaultValue={new Date().toISOString().split('T')[0]} className="p-3 bg-slate-50 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 font-bold" />
+                <input type="date" name="date" lang="zh-CN" defaultValue={new Date().toISOString().split('T')[0]} className="p-3 bg-slate-50 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 font-bold" />
                 <select required name="domain" className="p-3 bg-slate-50 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 font-bold">
                   <option value="">发展领域 *</option>
                   <option value="健康">健康领域</option>
@@ -683,7 +684,7 @@ const CurriculumView: React.FC<CurriculumViewProps> = ({ currentUser }) => {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
                   <span className="text-sm text-slate-400">{selectedPhoto.className}</span>
-                  <span className="text-sm text-slate-400">{new Date(selectedPhoto.capturedAt).toLocaleDateString()}</span>
+                  <span className="text-sm text-slate-400">{new Date(selectedPhoto.capturedAt).toLocaleDateString('zh-CN')}</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <button className="p-2 hover:bg-pink-100 rounded-xl text-pink-600">

@@ -12,6 +12,7 @@ import { QRCodeSVG } from 'qrcode.react';
 import { Student, User, DailyHealthRecord, AttendanceRecord, PickupRecord, GrowthRecord, DevelopmentAssessment } from '../types';
 import { supabase, isSupabaseConfigured } from '../services/supabaseClient';
 import { useToast } from '../components/Toast';
+import { ChineseDatePicker, formatChineseDate } from '../components/ChineseDatePicker';
 
 // 传染病登记记录
 interface DiseaseRecord {
@@ -66,6 +67,8 @@ const StudentsView: React.FC<StudentsViewProps> = ({ currentUser }) => {
   const [campusFilter, setCampusFilter] = useState<string>('ALL');
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [viewDetailModal, setViewDetailModal] = useState(false);
+  const [isEditingStudent, setIsEditingStudent] = useState(false);
+  const [editForm, setEditForm] = useState<Partial<Student>>({});
   const [viewMode, setViewMode] = useState<ViewMode>('CLASS_VIEW');
   const [selectedClass, setSelectedClass] = useState<string | null>(null);
   const [healthRecordModal, setHealthRecordModal] = useState(false);
@@ -121,7 +124,7 @@ const StudentsView: React.FC<StudentsViewProps> = ({ currentUser }) => {
     }
 
     if (data.length === 0) {
-      const local = localStorage.getItem('kt_students_local');
+      const local = localStorage.getItem('kt_students');
       if (local) data = JSON.parse(local);
     }
 
@@ -169,7 +172,7 @@ const StudentsView: React.FC<StudentsViewProps> = ({ currentUser }) => {
       studentId: pickupStudent.id,
       date: today,
       type: fd.get('type') as 'pickup' | 'dropoff',
-      time: new Date().toLocaleTimeString(),
+      time: new Date().toLocaleTimeString('zh-CN'),
       pickerName: fd.get('pickerName') as string,
       pickerRelation: fd.get('pickerRelation') as string,
       pickerPhone: fd.get('pickerPhone') as string,
@@ -239,7 +242,7 @@ const StudentsView: React.FC<StudentsViewProps> = ({ currentUser }) => {
   const confirmAttendance = () => {
     try {
       const now = new Date();
-      const timeStr = now.toLocaleTimeString();
+      const timeStr = now.toLocaleTimeString('zh-CN');
       const targetDate = attendanceDate;  // 使用选择的日期
       
       // 加载该日期的现有记录
@@ -271,7 +274,7 @@ const StudentsView: React.FC<StudentsViewProps> = ({ currentUser }) => {
           todayAttendance: existingRecords[s.id]
         }));
         setStudents(updatedStudents);
-        localStorage.setItem('kt_students_local', JSON.stringify(updatedStudents));
+        localStorage.setItem('kt_students', JSON.stringify(updatedStudents));
       }
       
       const presentCount = Object.values(pendingAttendance).filter(s => s === 'present').length;
@@ -292,7 +295,7 @@ const StudentsView: React.FC<StudentsViewProps> = ({ currentUser }) => {
       studentId,
       date: today,
       status,
-      checkInTime: status === 'present' || status === 'late' ? new Date().toLocaleTimeString() : undefined,
+      checkInTime: status === 'present' || status === 'late' ? new Date().toLocaleTimeString('zh-CN') : undefined,
       recordedBy: currentUser.name,
       recordedAt: new Date().toISOString()
     };
@@ -306,7 +309,7 @@ const StudentsView: React.FC<StudentsViewProps> = ({ currentUser }) => {
       s.id === studentId ? { ...s, status, todayAttendance: record } : s
     );
     setStudents(updatedStudents);
-    localStorage.setItem('kt_students_local', JSON.stringify(updatedStudents));
+    localStorage.setItem('kt_students', JSON.stringify(updatedStudents));
   };
 
   // 保存健康记录
@@ -430,7 +433,7 @@ const StudentsView: React.FC<StudentsViewProps> = ({ currentUser }) => {
 
     const updated = [newStudent, ...students];
     setStudents(updated);
-    localStorage.setItem('kt_students_local', JSON.stringify(updated));
+    localStorage.setItem('kt_students', JSON.stringify(updated));
 
     if (isSupabaseConfigured) {
       await supabase.from('students').insert([newStudent]);
@@ -443,7 +446,7 @@ const StudentsView: React.FC<StudentsViewProps> = ({ currentUser }) => {
     if (!confirm('确定要删除该幼儿档案吗？')) return;
     const updated = students.filter(s => s.id !== id);
     setStudents(updated);
-    localStorage.setItem('kt_students_local', JSON.stringify(updated));
+    localStorage.setItem('kt_students', JSON.stringify(updated));
     if (isSupabaseConfigured) {
       await supabase.from('students').delete().eq('id', id);
     }
@@ -696,6 +699,7 @@ const StudentsView: React.FC<StudentsViewProps> = ({ currentUser }) => {
             <div>
               <h3 className="font-black text-emerald-800 flex items-center gap-2">
                 考勤登记 · 
+                <span className="text-sm font-bold text-emerald-600">{formatChineseDate(attendanceDate)}</span>
                 <input
                   type="date"
                   value={attendanceDate}
@@ -1492,7 +1496,7 @@ const StudentsView: React.FC<StudentsViewProps> = ({ currentUser }) => {
                 <option>红眼病</option><option>其他传染病</option>
               </select>
               
-              <input required type="date" name="diagnosisDate" className="w-full p-3 bg-slate-50 rounded-xl outline-none focus:ring-2 focus:ring-red-500 font-bold" />
+              <input required type="date" name="diagnosisDate" lang="zh-CN" className="w-full p-3 bg-slate-50 rounded-xl outline-none focus:ring-2 focus:ring-red-500 font-bold" />
               
               <input name="symptoms" placeholder="症状（用逗号分隔，如：发烧,咳嗽）" className="w-full p-3 bg-slate-50 rounded-xl outline-none focus:ring-2 focus:ring-red-500 font-bold" />
               
@@ -1525,7 +1529,7 @@ const StudentsView: React.FC<StudentsViewProps> = ({ currentUser }) => {
               id: Date.now().toString(),
               className: fd.get('className') as string,
               date: today,
-              time: new Date().toLocaleTimeString().slice(0, 5),
+              time: new Date().toLocaleTimeString('zh-CN').slice(0, 5),
               type: fd.get('type') as 'daily' | 'weekly' | 'special',
               areas: (fd.get('areas') as string).split(',').map(s => s.trim()).filter(Boolean),
               method: fd.get('method') as string,
@@ -1705,7 +1709,7 @@ const StudentsView: React.FC<StudentsViewProps> = ({ currentUser }) => {
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <label className="text-[10px] font-bold text-slate-400 pl-1">出生日期 *</label>
-                  <input required type="date" name="birthDate" className="w-full p-3 bg-slate-50 rounded-xl outline-none focus:ring-2 focus:ring-amber-500 font-bold" />
+                  <input required type="date" name="birthDate" lang="zh-CN" className="w-full p-3 bg-slate-50 rounded-xl outline-none focus:ring-2 focus:ring-amber-500 font-bold" />
                 </div>
                 <select required name="class" className="p-3 bg-slate-50 rounded-xl outline-none focus:ring-2 focus:ring-amber-500 font-bold mt-auto">
                   <option value="">选择班级 *</option>
@@ -1801,7 +1805,7 @@ const StudentsView: React.FC<StudentsViewProps> = ({ currentUser }) => {
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <label className="text-[10px] font-bold text-slate-400 pl-1">入园日期</label>
-                  <input type="date" name="enrollDate" defaultValue={new Date().toISOString().split('T')[0]} className="w-full p-3 bg-slate-50 rounded-xl outline-none focus:ring-2 focus:ring-amber-500 font-bold" />
+                  <input type="date" name="enrollDate" lang="zh-CN" defaultValue={new Date().toISOString().split('T')[0]} className="w-full p-3 bg-slate-50 rounded-xl outline-none focus:ring-2 focus:ring-amber-500 font-bold" />
                 </div>
                 <input name="studentNumber" placeholder="学号（可选）" className="p-3 bg-slate-50 rounded-xl outline-none focus:ring-2 focus:ring-amber-500 font-bold mt-auto" />
               </div>
@@ -1848,7 +1852,7 @@ const StudentsView: React.FC<StudentsViewProps> = ({ currentUser }) => {
         </div>
       )}
       
-      {/* 查看详情弹窗 */}
+      {/* 查看/编辑详情弹窗 */}
       {viewDetailModal && selectedStudent && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
           <div className="bg-white rounded-[3rem] p-8 w-full max-w-2xl animate-in zoom-in-95 duration-200 my-8">
@@ -1856,13 +1860,36 @@ const StudentsView: React.FC<StudentsViewProps> = ({ currentUser }) => {
               <div className="flex items-center gap-4">
                 <img src={selectedStudent.avatar} className="w-20 h-20 rounded-3xl bg-slate-50 border-2 border-amber-100" />
                 <div>
-                  <h2 className="text-2xl font-bold text-slate-800">{selectedStudent.name}</h2>
+                  {isEditingStudent ? (
+                    <input
+                      type="text"
+                      value={editForm.name || ''}
+                      onChange={e => setEditForm(prev => ({ ...prev, name: e.target.value }))}
+                      className="text-2xl font-bold text-slate-800 bg-slate-50 px-3 py-1 rounded-lg border border-slate-200 outline-none focus:ring-2 focus:ring-blue-400"
+                      placeholder="姓名"
+                    />
+                  ) : (
+                    <h2 className="text-2xl font-bold text-slate-800">{selectedStudent.name}</h2>
+                  )}
                   <p className="text-sm text-slate-400">
                     {selectedStudent.gender === '男' ? '👦' : '👧'} {selectedStudent.class} · {selectedStudent.age}岁
                   </p>
                 </div>
               </div>
-              <button onClick={() => setViewDetailModal(false)} className="text-slate-300 hover:text-slate-500 text-2xl">×</button>
+              <div className="flex items-center gap-2">
+                {!isEditingStudent && (
+                  <button 
+                    onClick={() => {
+                      setIsEditingStudent(true);
+                      setEditForm({ ...selectedStudent });
+                    }}
+                    className="px-4 py-2 bg-blue-100 text-blue-700 rounded-xl font-bold text-sm hover:bg-blue-200 transition-colors"
+                  >
+                    ✏️ 编辑
+                  </button>
+                )}
+                <button onClick={() => { setViewDetailModal(false); setIsEditingStudent(false); }} className="text-slate-300 hover:text-slate-500 text-2xl">×</button>
+              </div>
             </div>
             
             {/* 今日状态 */}
@@ -1904,21 +1931,71 @@ const StudentsView: React.FC<StudentsViewProps> = ({ currentUser }) => {
               {/* 健康档案 */}
               <div className="bg-emerald-50 p-5 rounded-2xl">
                 <h3 className="font-bold text-emerald-700 mb-3 flex items-center gap-2"><Heart className="w-4 h-4" /> 健康档案</h3>
-                <div className="grid grid-cols-3 gap-4 text-sm">
-                  <div>
-                    <p className="text-emerald-600/60 text-xs">身高</p>
-                    <p className="font-bold text-emerald-800">{selectedStudent.height ? `${selectedStudent.height} cm` : '未填写'}</p>
+                {isEditingStudent ? (
+                  <div className="grid grid-cols-3 gap-4 text-sm">
+                    <div>
+                      <p className="text-emerald-600/60 text-xs mb-1">身高 (cm)</p>
+                      <input
+                        type="number"
+                        value={editForm.height || ''}
+                        onChange={e => setEditForm(prev => ({ ...prev, height: Number(e.target.value) || undefined }))}
+                        className="w-full px-3 py-2 bg-white rounded-lg border border-emerald-200 font-bold text-emerald-800 outline-none focus:ring-2 focus:ring-emerald-400"
+                        placeholder="身高"
+                      />
+                    </div>
+                    <div>
+                      <p className="text-emerald-600/60 text-xs mb-1">体重 (kg)</p>
+                      <input
+                        type="number"
+                        value={editForm.weight || ''}
+                        onChange={e => setEditForm(prev => ({ ...prev, weight: Number(e.target.value) || undefined }))}
+                        className="w-full px-3 py-2 bg-white rounded-lg border border-emerald-200 font-bold text-emerald-800 outline-none focus:ring-2 focus:ring-emerald-400"
+                        placeholder="体重"
+                      />
+                    </div>
+                    <div>
+                      <p className="text-emerald-600/60 text-xs mb-1">血型</p>
+                      <select
+                        value={editForm.bloodType || ''}
+                        onChange={e => setEditForm(prev => ({ ...prev, bloodType: e.target.value as 'A' | 'B' | 'AB' | 'O' | '未知' }))}
+                        className="w-full px-3 py-2 bg-white rounded-lg border border-emerald-200 font-bold text-emerald-800 outline-none focus:ring-2 focus:ring-emerald-400"
+                      >
+                        <option value="">未知</option>
+                        <option value="A">A型</option>
+                        <option value="B">B型</option>
+                        <option value="O">O型</option>
+                        <option value="AB">AB型</option>
+                      </select>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-emerald-600/60 text-xs">体重</p>
-                    <p className="font-bold text-emerald-800">{selectedStudent.weight ? `${selectedStudent.weight} kg` : '未填写'}</p>
+                ) : (
+                  <div className="grid grid-cols-3 gap-4 text-sm">
+                    <div>
+                      <p className="text-emerald-600/60 text-xs">身高</p>
+                      <p className="font-bold text-emerald-800">{selectedStudent.height ? `${selectedStudent.height} cm` : '未填写'}</p>
+                    </div>
+                    <div>
+                      <p className="text-emerald-600/60 text-xs">体重</p>
+                      <p className="font-bold text-emerald-800">{selectedStudent.weight ? `${selectedStudent.weight} kg` : '未填写'}</p>
+                    </div>
+                    <div>
+                      <p className="text-emerald-600/60 text-xs">血型</p>
+                      <p className="font-bold text-emerald-800">{selectedStudent.bloodType || '未知'}</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-emerald-600/60 text-xs">血型</p>
-                    <p className="font-bold text-emerald-800">{selectedStudent.bloodType || '未知'}</p>
+                )}
+                {isEditingStudent ? (
+                  <div className="mt-3 pt-3 border-t border-emerald-100">
+                    <p className="text-xs text-red-500 font-bold flex items-center gap-1 mb-2"><AlertTriangle className="w-3 h-3" /> 过敏史（逗号分隔）</p>
+                    <input
+                      type="text"
+                      value={(editForm.allergies || []).join(', ')}
+                      onChange={e => setEditForm(prev => ({ ...prev, allergies: e.target.value.split(',').map(s => s.trim()).filter(Boolean) }))}
+                      className="w-full px-3 py-2 bg-white rounded-lg border border-red-200 font-bold text-red-700 outline-none focus:ring-2 focus:ring-red-400"
+                      placeholder="如：花生, 牛奶"
+                    />
                   </div>
-                </div>
-                {selectedStudent.allergies && selectedStudent.allergies.length > 0 && (
+                ) : selectedStudent.allergies && selectedStudent.allergies.length > 0 && (
                   <div className="mt-3 pt-3 border-t border-emerald-100">
                     <p className="text-xs text-red-500 font-bold flex items-center gap-1"><AlertTriangle className="w-3 h-3" /> 过敏史</p>
                     <div className="flex flex-wrap gap-1 mt-1">
@@ -1933,27 +2010,147 @@ const StudentsView: React.FC<StudentsViewProps> = ({ currentUser }) => {
               {/* 家长信息 */}
               <div className="bg-blue-50 p-5 rounded-2xl">
                 <h3 className="font-bold text-blue-700 mb-3 flex items-center gap-2"><Phone className="w-4 h-4" /> 家长信息</h3>
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div>
-                    <p className="text-blue-600/60 text-xs">主要监护人</p>
-                    <p className="font-bold text-blue-800">{selectedStudent.parent_name} ({selectedStudent.parent_relation})</p>
+                {isEditingStudent ? (
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <p className="text-blue-600/60 text-xs mb-1">主要监护人</p>
+                      <input
+                        type="text"
+                        value={editForm.parent_name || ''}
+                        onChange={e => setEditForm(prev => ({ ...prev, parent_name: e.target.value }))}
+                        className="w-full px-3 py-2 bg-white rounded-lg border border-blue-200 font-bold text-blue-800 outline-none focus:ring-2 focus:ring-blue-400"
+                        placeholder="监护人姓名"
+                      />
+                    </div>
+                    <div>
+                      <p className="text-blue-600/60 text-xs mb-1">与幼儿关系</p>
+                      <select
+                        value={editForm.parent_relation || ''}
+                        onChange={e => setEditForm(prev => ({ ...prev, parent_relation: e.target.value as '父亲' | '母亲' | '爷爷' | '奶奶' | '外公' | '外婆' | '其他' }))}
+                        className="w-full px-3 py-2 bg-white rounded-lg border border-blue-200 font-bold text-blue-800 outline-none focus:ring-2 focus:ring-blue-400"
+                      >
+                        <option value="">请选择</option>
+                        <option value="父亲">父亲</option>
+                        <option value="母亲">母亲</option>
+                        <option value="爷爷">爷爷</option>
+                        <option value="奶奶">奶奶</option>
+                        <option value="外公">外公</option>
+                        <option value="外婆">外婆</option>
+                        <option value="其他">其他</option>
+                      </select>
+                    </div>
+                    <div className="col-span-2">
+                      <p className="text-blue-600/60 text-xs mb-1">联系电话</p>
+                      <input
+                        type="tel"
+                        value={editForm.parent_phone || ''}
+                        onChange={e => setEditForm(prev => ({ ...prev, parent_phone: e.target.value }))}
+                        className="w-full px-3 py-2 bg-white rounded-lg border border-blue-200 font-bold text-blue-800 outline-none focus:ring-2 focus:ring-blue-400"
+                        placeholder="手机号码"
+                      />
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-blue-600/60 text-xs">联系电话</p>
-                    <p className="font-bold text-blue-800">{selectedStudent.parent_phone}</p>
+                ) : (
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <p className="text-blue-600/60 text-xs">主要监护人</p>
+                      <p className="font-bold text-blue-800">{selectedStudent.parent_name} ({selectedStudent.parent_relation})</p>
+                    </div>
+                    <div>
+                      <p className="text-blue-600/60 text-xs">联系电话</p>
+                      <p className="font-bold text-blue-800">{selectedStudent.parent_phone}</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* 编辑模式下显示更多信息 */}
+              {isEditingStudent && (
+                <div className="bg-purple-50 p-5 rounded-2xl">
+                  <h3 className="font-bold text-purple-700 mb-3 flex items-center gap-2">📋 基本信息</h3>
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <p className="text-purple-600/60 text-xs mb-1">性别</p>
+                      <select
+                        value={editForm.gender || ''}
+                        onChange={e => setEditForm(prev => ({ ...prev, gender: e.target.value as '男' | '女' }))}
+                        className="w-full px-3 py-2 bg-white rounded-lg border border-purple-200 font-bold text-purple-800 outline-none focus:ring-2 focus:ring-purple-400"
+                      >
+                        <option value="男">男</option>
+                        <option value="女">女</option>
+                      </select>
+                    </div>
+                    <div>
+                      <p className="text-purple-600/60 text-xs mb-1">年龄</p>
+                      <input
+                        type="number"
+                        value={editForm.age || ''}
+                        onChange={e => setEditForm(prev => ({ ...prev, age: Number(e.target.value) }))}
+                        className="w-full px-3 py-2 bg-white rounded-lg border border-purple-200 font-bold text-purple-800 outline-none focus:ring-2 focus:ring-purple-400"
+                        placeholder="年龄"
+                      />
+                    </div>
+                    <div>
+                      <p className="text-purple-600/60 text-xs mb-1">班级</p>
+                      <input
+                        type="text"
+                        value={editForm.class || ''}
+                        onChange={e => setEditForm(prev => ({ ...prev, class: e.target.value }))}
+                        className="w-full px-3 py-2 bg-white rounded-lg border border-purple-200 font-bold text-purple-800 outline-none focus:ring-2 focus:ring-purple-400"
+                        placeholder="班级名称"
+                      />
+                    </div>
+                    <div>
+                      <p className="text-purple-600/60 text-xs mb-1">出生日期</p>
+                      <ChineseDatePicker
+                        value={editForm.birthDate || ''}
+                        onChange={value => setEditForm(prev => ({ ...prev, birthDate: value }))}
+                        placeholder="选择出生日期"
+                        className="border-purple-200 focus:ring-purple-400"
+                      />
+                    </div>
                   </div>
                 </div>
-              </div>
+              )}
             </div>
             
             <div className="flex gap-4 pt-6">
-              <button 
-                onClick={() => sendParentNotification(selectedStudent.id, 'daily_report', '今日在园情况', generateDailyReport(selectedStudent, todayRecords[selectedStudent.id] || {} as DailyHealthRecord))}
-                className="flex-1 py-3 bg-blue-600 text-white rounded-xl font-bold flex items-center justify-center gap-2"
-              >
-                <Send className="w-4 h-4" /> 发送给家长
-              </button>
-              <button onClick={() => setViewDetailModal(false)} className="flex-1 py-3 text-slate-400 font-bold">关闭</button>
+              {isEditingStudent ? (
+                <>
+                  <button
+                    onClick={() => {
+                      // 保存编辑
+                      const updatedStudents = students.map(s => 
+                        s.id === selectedStudent.id ? { ...s, ...editForm } : s
+                      );
+                      setStudents(updatedStudents);
+                      localStorage.setItem('kt_students', JSON.stringify(updatedStudents));
+                      setSelectedStudent({ ...selectedStudent, ...editForm } as Student);
+                      setIsEditingStudent(false);
+                      toast.success('保存成功', '学生信息已更新');
+                    }}
+                    className="flex-1 py-3 bg-emerald-600 text-white rounded-xl font-bold flex items-center justify-center gap-2"
+                  >
+                    <CheckCircle2 className="w-4 h-4" /> 保存修改
+                  </button>
+                  <button 
+                    onClick={() => { setIsEditingStudent(false); setEditForm({}); }}
+                    className="flex-1 py-3 text-slate-400 font-bold"
+                  >
+                    取消
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button 
+                    onClick={() => sendParentNotification(selectedStudent.id, 'daily_report', '今日在园情况', generateDailyReport(selectedStudent, todayRecords[selectedStudent.id] || {} as DailyHealthRecord))}
+                    className="flex-1 py-3 bg-blue-600 text-white rounded-xl font-bold flex items-center justify-center gap-2"
+                  >
+                    <Send className="w-4 h-4" /> 发送给家长
+                  </button>
+                  <button onClick={() => setViewDetailModal(false)} className="flex-1 py-3 text-slate-400 font-bold">关闭</button>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -2060,7 +2257,7 @@ const StudentsView: React.FC<StudentsViewProps> = ({ currentUser }) => {
                       studentId: student.id,
                       date: today,
                       type: fd.get('type') as 'pickup' | 'dropoff',
-                      time: new Date().toLocaleTimeString(),
+                      time: new Date().toLocaleTimeString('zh-CN'),
                       pickerName: pickerInfo.name,
                       pickerRelation: pickerInfo.relation,
                       pickerPhone: pickerInfo.phone,

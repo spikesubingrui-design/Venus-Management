@@ -4,6 +4,7 @@ import { User, UserRole } from '../types';
 import { LogIn, ShieldCheck, Phone, AlertCircle, UserCircle, Users, UtensilsCrossed, GraduationCap, Loader2, Building2, Lock, Eye, EyeOff, Crown, Cloud, CloudOff, Info, Leaf, TreeDeciduous, Sprout } from 'lucide-react';
 import { Logo } from '../App';
 import { supabase, isSupabaseConfigured } from '../services/supabaseClient';
+import { isAliyunConfigured } from '../services/aliyunOssService';
 import { useToast } from '../components/Toast';
 
 interface AuthViewProps {
@@ -16,6 +17,15 @@ const SUPER_ADMIN = {
   password: 'su123789',
   name: '系统管理员',
   role: 'SUPER_ADMIN' as UserRole,
+  campus: '总园'
+};
+
+// 预置财务账号
+const PRESET_FINANCE = {
+  phone: '15936701063',
+  password: 'qdjx7777',
+  name: '张玉玲',
+  role: 'FINANCE' as UserRole,
   campus: '总园'
 };
 
@@ -43,7 +53,7 @@ const validatePassword = (password: string): { valid: boolean; message: string }
   }
   if (!/[a-zA-Z]/.test(password)) {
     return { valid: false, message: '密码必须包含至少一个英文字母' };
-  }
+    }
   if (!/[0-9]/.test(password)) {
     return { valid: false, message: '密码必须包含至少一个数字' };
   }
@@ -53,14 +63,21 @@ const validatePassword = (password: string): { valid: boolean; message: string }
 // 可注册的角色
 const AVAILABLE_ROLES: { role: UserRole; label: string; icon: React.ElementType; desc: string; color: string }[] = [
   { role: 'ADMIN', label: '园区管理员', icon: Users, desc: '管理本园区所有功能', color: 'text-amber-600 bg-amber-50' },
+  { role: 'FINANCE', label: '财务人员', icon: Crown, desc: '收费管理和财务报表', color: 'text-rose-600 bg-rose-50' },
   { role: 'TEACHER', label: '教师', icon: GraduationCap, desc: '考勤、健康、课程等', color: 'text-blue-600 bg-blue-50' },
   { role: 'KITCHEN', label: '厨房人员', icon: UtensilsCrossed, desc: '食谱和采购管理', color: 'text-emerald-600 bg-emerald-50' },
   { role: 'PARENT', label: '家长', icon: UserCircle, desc: '查看孩子信息和通知', color: 'text-purple-600 bg-purple-50' },
 ];
 
+// 短信云函数配置
+const SMS_CONFIG = {
+  functionUrl: 'https://venus-gfectwrqon.cn-beijing.fcapp.run',
+};
+
 const AuthView: React.FC<AuthViewProps> = ({ onLogin }) => {
   const toast = useToast();
   const [isLogin, setIsLogin] = useState(true);
+  const [loginType, setLoginType] = useState<'password' | 'sms'>('password');
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
@@ -74,31 +91,142 @@ const AuthView: React.FC<AuthViewProps> = ({ onLogin }) => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [cloudConnected, setCloudConnected] = useState(false);
+  
+  // 验证码相关状态
+  const [smsCode, setSmsCode] = useState('');
+  const [countdown, setCountdown] = useState(0);
 
   useEffect(() => {
     initializeData();
   }, []);
+  
+  // 验证码倒计时
+  useEffect(() => {
+    if (countdown > 0) {
+      const timer = setTimeout(() => setCountdown(countdown - 1), 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [countdown]);
 
   // 初始化数据
   const initializeData = async () => {
     // 加载园区列表
     await loadCampuses();
     
-    // 检查云端连接
+    // 检查阿里云OSS连接状态
+    if (isAliyunConfigured) {
+      setCloudConnected(true);
+      console.log('✅ 阿里云OSS已配置');
+    }
+    
+    // 如果Supabase也配置了，额外检查
     if (isSupabaseConfigured) {
       try {
         const { error } = await supabase.from('users').select('id').limit(1);
         if (!error) {
           setCloudConnected(true);
-          console.log('✅ 云端数据库连接成功');
+          console.log('✅ Supabase云端数据库连接成功');
         }
       } catch (err) {
-        console.log('❌ 云端数据库连接失败，使用本地模式');
+        console.log('❌ Supabase连接失败，使用阿里云OSS');
       }
     }
     
     // 初始化超级管理员
     await initSuperAdmin();
+  };
+
+  // 发送验证码
+  const handleSendCode = async () => {
+    if (!phone || phone.length !== 11) {
+      setError('请输入正确的11位手机号');
+      return;
+    }
+    
+    if (countdown > 0) return;
+    
+    setLoading(true);
+    setError('');
+    
+    try {
+      const response = await fetch(SMS_CONFIG.functionUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'send', phone }),
+      });
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        setCountdown(60);
+        toast.success('发送成功', '验证码已发送到您的手机');
+      } else {
+        setError(result.message || '发送失败，请稍后重试');
+      }
+    } catch (err) {
+      console.error('发送验证码失败:', err);
+      setError('网络错误，请稍后重试');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 验证码登录
+  const handleSmsLogin = async () => {
+    if (!phone || phone.length !== 11) {
+      setError('请输入正确的11位手机号');
+      return;
+    }
+    if (!smsCode || smsCode.length !== 6) {
+      setError('请输入6位验证码');
+      return;
+    }
+    
+    setLoading(true);
+    setError('');
+    
+    try {
+      // 验证验证码
+      const response = await fetch(SMS_CONFIG.functionUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'verify', phone, code: smsCode }),
+      });
+      
+      const result = await response.json();
+      
+      if (!result.success) {
+        setError(result.message || '验证码错误');
+        setLoading(false);
+        return;
+      }
+      
+      // 验证成功，检查用户
+      const allUsers: User[] = JSON.parse(localStorage.getItem('kt_all_users') || '[]');
+      let user = allUsers.find(u => u.phone === phone);
+      
+      if (!user) {
+        // 自动创建用户
+        user = {
+          id: `user_${Date.now()}`,
+          phone,
+          name: `用户${phone.slice(-4)}`,
+          role: 'TEACHER' as UserRole,
+          campus: '总园',
+          createdAt: new Date().toISOString(),
+        };
+        allUsers.push(user);
+        localStorage.setItem('kt_all_users', JSON.stringify(allUsers));
+      }
+      
+      toast.success('登录成功', `欢迎，${user.name}！`);
+      onLogin(user);
+    } catch (err) {
+      console.error('验证码登录失败:', err);
+      setError('登录失败，请稍后重试');
+    } finally {
+      setLoading(false);
+    }
   };
 
   // 加载园区列表（优先云端）
@@ -179,9 +307,35 @@ const AuthView: React.FC<AuthViewProps> = ({ onLogin }) => {
     } else {
       allUsers[superAdminIndex].role = SUPER_ADMIN.role;
       allUsers[superAdminIndex].campus = SUPER_ADMIN.campus;
-    }
+      }
     
     passwords[SUPER_ADMIN.phone] = passwordHash;
+    
+    // 初始化预置财务账号
+    const financePasswordHash = hashPassword(PRESET_FINANCE.password);
+    const financeIndex = allUsers.findIndex(u => u.phone === PRESET_FINANCE.phone);
+    
+    if (financeIndex === -1) {
+      allUsers.push({
+        id: 'finance_preset_1',
+        name: PRESET_FINANCE.name,
+        phone: PRESET_FINANCE.phone,
+        role: PRESET_FINANCE.role,
+        campus: PRESET_FINANCE.campus,
+        avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=zhangyuling`
+      });
+    } else {
+      allUsers[financeIndex].role = PRESET_FINANCE.role;
+      allUsers[financeIndex].name = PRESET_FINANCE.name;
+    }
+    passwords[PRESET_FINANCE.phone] = financePasswordHash;
+    
+    // 添加到授权手机号
+    const authPhones: string[] = JSON.parse(localStorage.getItem('kt_authorized_phones') || '[]');
+    if (!authPhones.includes(PRESET_FINANCE.phone)) {
+      authPhones.push(PRESET_FINANCE.phone);
+      localStorage.setItem('kt_authorized_phones', JSON.stringify(authPhones));
+    }
     
     localStorage.setItem('kt_all_users', JSON.stringify(allUsers));
     localStorage.setItem('kt_user_passwords', JSON.stringify(passwords));
@@ -193,6 +347,9 @@ const AuthView: React.FC<AuthViewProps> = ({ onLogin }) => {
     
     // 超级管理员始终有权限
     if (cleanPhone === SUPER_ADMIN.phone) return true;
+    
+    // 预置财务账号始终有权限
+    if (cleanPhone === PRESET_FINANCE.phone) return true;
     
     // 云端检查
     if (isSupabaseConfigured && cloudConnected) {
@@ -269,7 +426,7 @@ const AuthView: React.FC<AuthViewProps> = ({ onLogin }) => {
       console.log('云端登录失败:', err);
       return null;
     }
-  };
+    };
 
   // 云端注册
   const cloudRegister = async (userData: User, passwordHash: string): Promise<boolean> => {
@@ -321,9 +478,9 @@ const AuthView: React.FC<AuthViewProps> = ({ onLogin }) => {
     if (!password || password.length < 6) {
       setError('密码至少需要6位');
       setPasswordError(true);
-      setLoading(false);
-      return;
-    }
+          setLoading(false);
+          return; 
+        }
 
     // 注册时验证密码安全标准
     if (!isLogin) {
@@ -351,7 +508,7 @@ const AuthView: React.FC<AuthViewProps> = ({ onLogin }) => {
         const existingIndex = allUsers.findIndex(u => u.phone === phone);
         if (existingIndex === -1) {
           allUsers.push(cloudUser);
-        } else {
+      } else {
           allUsers[existingIndex] = cloudUser;
         }
         passwords[phone] = passwordHash;
@@ -389,7 +546,7 @@ const AuthView: React.FC<AuthViewProps> = ({ onLogin }) => {
       
     } else {
       // ========== 注册模式 ==========
-      
+
       if (!name.trim()) {
         setError('请输入姓名');
         setLoading(false);
@@ -452,7 +609,7 @@ const AuthView: React.FC<AuthViewProps> = ({ onLogin }) => {
     setLoading(false);
   };
 
-  return (
+    return (
     <div 
       className="min-h-screen flex items-center justify-center p-4 md:p-6 relative overflow-hidden"
       style={{ 
@@ -486,7 +643,7 @@ const AuthView: React.FC<AuthViewProps> = ({ onLogin }) => {
           >
             {cloudConnected ? <Cloud className="w-3 h-3" /> : <CloudOff className="w-3 h-3" />}
             {cloudConnected ? '云端已连接' : '离线模式'}
-          </div>
+              </div>
           {/* 波浪装饰 */}
           <svg className="absolute bottom-0 left-0 right-0 w-full h-6 translate-y-1" viewBox="0 0 1200 120" preserveAspectRatio="none">
             <path d="M0,60 C200,120 400,0 600,60 C800,120 1000,0 1200,60 L1200,120 L0,120 Z" fill="#faf8f5" />
@@ -522,6 +679,34 @@ const AuthView: React.FC<AuthViewProps> = ({ onLogin }) => {
             </button>
           </div>
           
+          {/* 登录方式切换（仅登录模式显示） */}
+          {isLogin && (
+            <div className="flex gap-2 text-sm">
+              <button
+                type="button"
+                onClick={() => { setLoginType('password'); setError(''); }}
+                className={`flex-1 py-2 rounded-lg font-semibold transition-all ${
+                  loginType === 'password' 
+                    ? 'bg-amber-100 text-amber-700' 
+                    : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+                }`}
+              >
+                密码登录
+              </button>
+              <button
+                type="button"
+                onClick={() => { setLoginType('sms'); setError(''); }}
+                className={`flex-1 py-2 rounded-lg font-semibold transition-all ${
+                  loginType === 'sms' 
+                    ? 'bg-amber-100 text-amber-700' 
+                    : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+                }`}
+              >
+                验证码登录
+              </button>
+            </div>
+          )}
+          
           {error && (
             <div className="p-4 rounded-xl text-xs font-semibold flex gap-2" style={{ backgroundColor: '#fef2f2', color: '#dc2626' }}>
               <AlertCircle className="w-4 h-4 shrink-0" />
@@ -529,7 +714,7 @@ const AuthView: React.FC<AuthViewProps> = ({ onLogin }) => {
             </div>
           )}
           
-          <form onSubmit={handleSubmit} className="space-y-3 md:space-y-4" noValidate>
+          <form onSubmit={isLogin && loginType === 'sms' ? (e) => { e.preventDefault(); handleSmsLogin(); } : handleSubmit} className="space-y-3 md:space-y-4" noValidate>
             {!isLogin && (
               <>
                 <input 
@@ -608,61 +793,65 @@ const AuthView: React.FC<AuthViewProps> = ({ onLogin }) => {
               />
             </div>
             
-            <div className="relative">
-              <Lock className={`absolute left-4 md:left-5 top-1/2 -translate-y-1/2 w-5 h-5 ${passwordError ? 'text-rose-400' : 'text-slate-300'}`} />
-              <input 
-                required 
-                type={showPassword ? 'text' : 'password'}
-                placeholder={isLogin ? "密码" : "设置密码"} 
-                value={password} 
-                onChange={e => { setPassword(e.target.value); setPasswordError(false); }} 
-                className={`w-full pl-12 md:pl-14 pr-20 md:pr-24 py-3 md:py-4 bg-slate-50 border-2 rounded-xl md:rounded-2xl outline-none focus:border-amber-500 font-bold text-base ${
-                  passwordError ? 'border-rose-400 bg-rose-50' : 'border-slate-100'
-                }`}
-              />
-              <div className="absolute right-4 md:right-5 top-1/2 -translate-y-1/2 flex items-center gap-1">
-                {/* 注册时显示密码要求感叹号 */}
-                {!isLogin && (
-                  <div className="relative z-50">
-                    <button
-                      type="button"
-                      onClick={() => setShowPasswordTip(!showPasswordTip)}
-                      onMouseEnter={() => setShowPasswordTip(true)}
-                      onMouseLeave={() => setShowPasswordTip(false)}
-                      className={`p-1 rounded-full transition-colors ${passwordError ? 'text-rose-500' : 'text-amber-500 hover:text-amber-600'}`}
-                    >
-                      <Info className="w-4 h-4" />
-                    </button>
-                    {/* 密码要求提示框 */}
-                    {showPasswordTip && (
-                      <div className="absolute right-0 bottom-full mb-2 w-48 p-3 bg-slate-800 text-white text-xs rounded-xl shadow-2xl z-[100]">
-                        <p className="font-bold mb-2">密码要求：</p>
-                        <ul className="space-y-1">
-                          <li className={password.length >= 6 ? 'text-emerald-400' : 'text-slate-400'}>
-                            {password.length >= 6 ? '✓' : '○'} 至少6位字符
-                          </li>
-                          <li className={/[a-zA-Z]/.test(password) ? 'text-emerald-400' : 'text-slate-400'}>
-                            {/[a-zA-Z]/.test(password) ? '✓' : '○'} 包含英文字母(a-z)
-                          </li>
-                          <li className={/[0-9]/.test(password) ? 'text-emerald-400' : 'text-slate-400'}>
-                            {/[0-9]/.test(password) ? '✓' : '○'} 包含数字(0-9)
-                          </li>
-                        </ul>
-                        <div className="absolute -bottom-1 right-3 w-2 h-2 bg-slate-800 rotate-45"></div>
-                      </div>
-                    )}
-                  </div>
-                )}
-                <button
+            {/* 密码输入（密码登录或注册模式） */}
+            {(!isLogin || loginType === 'password') && (
+              <div className="relative">
+                <Lock className={`absolute left-4 md:left-5 top-1/2 -translate-y-1/2 w-5 h-5 ${passwordError ? 'text-rose-400' : 'text-slate-300'}`} />
+                  <input 
+                    required 
+                  type={showPassword ? 'text' : 'password'}
+                  placeholder={isLogin ? "密码" : "设置密码"} 
+                  value={password} 
+                  onChange={e => { setPassword(e.target.value); setPasswordError(false); }} 
+                  className={`w-full pl-12 md:pl-14 pr-20 md:pr-24 py-3 md:py-4 bg-slate-50 border-2 rounded-xl md:rounded-2xl outline-none focus:border-amber-500 font-bold text-base ${
+                    passwordError ? 'border-rose-400 bg-rose-50' : 'border-slate-100'
+                  }`}
+                />
+                <div className="absolute right-4 md:right-5 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                  {/* 注册时显示密码要求感叹号 */}
+                  {!isLogin && (
+                    <div className="relative z-50">
+                <button 
                   type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="text-slate-400 hover:text-slate-600 p-1"
-                >
-                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                        onClick={() => setShowPasswordTip(!showPasswordTip)}
+                        onMouseEnter={() => setShowPasswordTip(true)}
+                        onMouseLeave={() => setShowPasswordTip(false)}
+                        className={`p-1 rounded-full transition-colors ${passwordError ? 'text-rose-500' : 'text-amber-500 hover:text-amber-600'}`}
+                      >
+                        <Info className="w-4 h-4" />
+                      </button>
+                      {/* 密码要求提示框 */}
+                      {showPasswordTip && (
+                        <div className="absolute right-0 bottom-full mb-2 w-48 p-3 bg-slate-800 text-white text-xs rounded-xl shadow-2xl z-[100]">
+                          <p className="font-bold mb-2">密码要求：</p>
+                          <ul className="space-y-1">
+                            <li className={password.length >= 6 ? 'text-emerald-400' : 'text-slate-400'}>
+                              {password.length >= 6 ? '✓' : '○'} 至少6位字符
+                            </li>
+                            <li className={/[a-zA-Z]/.test(password) ? 'text-emerald-400' : 'text-slate-400'}>
+                              {/[a-zA-Z]/.test(password) ? '✓' : '○'} 包含英文字母(a-z)
+                            </li>
+                            <li className={/[0-9]/.test(password) ? 'text-emerald-400' : 'text-slate-400'}>
+                              {/[0-9]/.test(password) ? '✓' : '○'} 包含数字(0-9)
+                            </li>
+                          </ul>
+                          <div className="absolute -bottom-1 right-3 w-2 h-2 bg-slate-800 rotate-45"></div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="text-slate-400 hover:text-slate-600 p-1"
+                  >
+                    {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                 </button>
+                </div>
               </div>
-            </div>
-
+            )}
+            
+            {/* 确认密码（仅注册模式） */}
             {!isLogin && (
               <div className="relative">
                 <Lock className="absolute left-4 md:left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300" />
@@ -677,11 +866,34 @@ const AuthView: React.FC<AuthViewProps> = ({ onLogin }) => {
               </div>
             )}
 
-            {/* 验证码登录提示（开发中） */}
-            <div className="p-2.5 md:p-3 bg-slate-50 rounded-lg md:rounded-xl flex items-center gap-2 text-slate-400">
-              <ShieldCheck className="w-4 h-4 shrink-0" />
-              <span className="text-xs">验证码登录功能开发中...</span>
-            </div>
+            {/* 验证码输入（验证码登录模式） */}
+            {isLogin && loginType === 'sms' && (
+              <div className="relative">
+                <ShieldCheck className="absolute left-4 md:left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300" />
+                <input 
+                  required 
+                  type="text"
+                  inputMode="numeric"
+                  maxLength={6}
+                  placeholder="请输入6位验证码" 
+                  value={smsCode} 
+                  onChange={e => setSmsCode(e.target.value.replace(/\D/g, ''))} 
+                  className="w-full pl-12 md:pl-14 pr-28 md:pr-32 py-3 md:py-4 bg-slate-50 border-2 border-slate-100 rounded-xl md:rounded-2xl outline-none focus:border-amber-500 font-bold text-base" 
+                />
+                <button
+                  type="button"
+                  onClick={handleSendCode}
+                  disabled={countdown > 0 || loading}
+                  className={`absolute right-2 top-1/2 -translate-y-1/2 px-3 py-2 rounded-lg text-sm font-semibold transition-all ${
+                    countdown > 0 || loading
+                      ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                      : 'bg-amber-500 text-white hover:bg-amber-600'
+                  }`}
+                >
+                  {countdown > 0 ? `${countdown}s` : '获取验证码'}
+                </button>
+              </div>
+            )}
 
             <button 
               type="submit" 
@@ -696,7 +908,7 @@ const AuthView: React.FC<AuthViewProps> = ({ onLogin }) => {
               {isLogin ? '登录' : '注册'}
             </button>
           </form>
-
+          
           {/* 管理员提示 */}
           {isLogin && (
             <div className="p-2.5 md:p-3 bg-amber-50 rounded-lg md:rounded-xl flex items-start gap-2">

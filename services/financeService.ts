@@ -1015,7 +1015,7 @@ export function getPaymentStats(campus: string, period: string): {
   const payments = getPayments({ campus, period, status: 'confirmed' });
   
   // 获取所有学生
-  const studentsData = localStorage.getItem('kt_students_local');
+  const studentsData = localStorage.getItem('kt_students');
   const allStudents: Student[] = studentsData ? JSON.parse(studentsData) : [];
   const campusStudents = allStudents.filter(s => s.campus === campus);
   
@@ -1384,7 +1384,7 @@ export function getStudentPaymentStatus(student: Student, checkMonth?: string): 
  * 批量获取所有学生的缴费状态
  */
 export function getAllStudentPaymentStatuses(campus?: string, checkMonth?: string): StudentPaymentStatus[] {
-  const studentsData = localStorage.getItem('kt_students_local') || localStorage.getItem(STORAGE_KEYS.STUDENTS);
+  const studentsData = localStorage.getItem('kt_students') || localStorage.getItem(STORAGE_KEYS.STUDENTS);
   const allStudents: Student[] = studentsData ? JSON.parse(studentsData) : [];
   // Filter by campus only (if specified) - status field is for daily attendance, not enrollment
   const campusStudents = campus 

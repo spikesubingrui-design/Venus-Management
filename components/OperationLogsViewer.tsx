@@ -10,6 +10,7 @@ import {
   User, FileText, Clock
 } from 'lucide-react';
 import { getOperationLogs, OperationLog, exportAllData, getStorageStats } from '../services/storageService';
+import { ChineseDatePicker } from './ChineseDatePicker';
 
 const ACTION_CONFIG: Record<OperationLog['action'], { label: string; color: string; icon: React.ElementType }> = {
   CREATE: { label: '新增', color: 'bg-emerald-100 text-emerald-700', icon: Plus },
@@ -187,18 +188,17 @@ const OperationLogsViewer: React.FC = () => {
           {/* 日期范围 */}
           <div className="flex items-center gap-2">
             <Calendar className="w-4 h-4 text-slate-400" />
-            <input
-              type="date"
+            <ChineseDatePicker
               value={dateRange.start}
-              onChange={e => setDateRange(prev => ({ ...prev, start: e.target.value }))}
-              className="px-3 py-2 bg-slate-50 border-2 border-slate-100 rounded-xl outline-none focus:border-amber-500 text-sm font-bold"
+              onChange={value => setDateRange(prev => ({ ...prev, start: value }))}
+              placeholder="开始日期"
+              className="!py-2 text-sm w-40"
             />
             <span className="text-slate-400">至</span>
-            <input
-              type="date"
+            <ChineseDatePicker
               value={dateRange.end}
-              onChange={e => setDateRange(prev => ({ ...prev, end: e.target.value }))}
-              className="px-3 py-2 bg-slate-50 border-2 border-slate-100 rounded-xl outline-none focus:border-amber-500 text-sm font-bold"
+              onChange={value => setDateRange(prev => ({ ...prev, end: value }))}
+              className="!py-2 text-sm w-40"
             />
           </div>
         </div>

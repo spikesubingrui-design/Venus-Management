@@ -11,6 +11,7 @@ import { User } from '../types';
 import { hasPermission } from '../services/permissionService';
 import { logOperation } from '../services/storageService';
 import ConfirmUploadModal, { UploadSuccessToast } from '../components/ConfirmUploadModal';
+import { ChineseDatePicker, formatChineseDate } from '../components/ChineseDatePicker';
 
 interface SafetyViewProps {
   currentUser: User;
@@ -271,7 +272,7 @@ const SafetyView: React.FC<SafetyViewProps> = ({ currentUser }) => {
       endTime: fd.get('endTime') as string,
       checkpoints: patrolPoints.filter(p => p.isActive).map(p => ({
         name: p.name,
-        time: new Date().toLocaleTimeString(),
+        time: new Date().toLocaleTimeString('zh-CN'),
         status: 'normal' as const,
       })),
       issues: fd.get('issues') as string,
@@ -386,11 +387,11 @@ const SafetyView: React.FC<SafetyViewProps> = ({ currentUser }) => {
                   className="pl-10 pr-4 py-2 bg-white border border-slate-100 rounded-xl text-sm font-bold w-64"
                 />
               </div>
-              <input 
-                type="date"
+              <ChineseDatePicker 
                 value={dateFilter}
-                onChange={(e) => setDateFilter(e.target.value)}
-                className="px-4 py-2 bg-white border border-slate-100 rounded-xl text-sm font-bold"
+                onChange={(value) => setDateFilter(value)}
+                placeholder="选择日期筛选"
+                className="!py-2 text-sm"
               />
             </div>
             <button 
@@ -438,11 +439,11 @@ const SafetyView: React.FC<SafetyViewProps> = ({ currentUser }) => {
                       </td>
                       <td className="px-4 py-3">
                         <p className="text-sm text-slate-600">
-                          {new Date(visitor.entryTime).toLocaleTimeString()}
+                          {new Date(visitor.entryTime).toLocaleTimeString('zh-CN')}
                         </p>
                         {visitor.exitTime && (
                           <p className="text-xs text-slate-400">
-                            离开: {new Date(visitor.exitTime).toLocaleTimeString()}
+                            离开: {new Date(visitor.exitTime).toLocaleTimeString('zh-CN')}
                           </p>
                         )}
                       </td>
@@ -486,11 +487,11 @@ const SafetyView: React.FC<SafetyViewProps> = ({ currentUser }) => {
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <input 
-                type="date"
+              <ChineseDatePicker 
                 value={dateFilter}
-                onChange={(e) => setDateFilter(e.target.value)}
-                className="px-4 py-2 bg-white border border-slate-100 rounded-xl text-sm font-bold"
+                onChange={(value) => setDateFilter(value)}
+                placeholder="选择日期筛选"
+                className="!py-2 text-sm"
               />
             </div>
             <button 
@@ -560,11 +561,11 @@ const SafetyView: React.FC<SafetyViewProps> = ({ currentUser }) => {
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <input 
-                type="date"
+              <ChineseDatePicker 
                 value={dateFilter}
-                onChange={(e) => setDateFilter(e.target.value)}
-                className="px-4 py-2 bg-white border border-slate-100 rounded-xl text-sm font-bold"
+                onChange={(value) => setDateFilter(value)}
+                placeholder="选择日期筛选"
+                className="!py-2 text-sm"
               />
             </div>
             <button 
@@ -795,8 +796,8 @@ const SafetyView: React.FC<SafetyViewProps> = ({ currentUser }) => {
                 <option value="重点区域">重点区域</option>
                 <option value="夜间巡逻">夜间巡逻</option>
               </select>
-              <input required name="startTime" type="time" className="p-3 bg-slate-50 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500 font-bold" />
-              <input required name="endTime" type="time" className="p-3 bg-slate-50 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500 font-bold" />
+              <input required name="startTime" type="time" lang="zh-CN" className="p-3 bg-slate-50 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500 font-bold" />
+              <input required name="endTime" type="time" lang="zh-CN" className="p-3 bg-slate-50 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500 font-bold" />
             </div>
             
             <div className="p-4 bg-slate-50 rounded-xl">

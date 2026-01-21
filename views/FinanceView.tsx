@@ -10,8 +10,20 @@ import {
   ChevronDown, ChevronRight, Search, Eye, Check, X, TrendingUp,
   Wallet, Receipt, PiggyBank, ArrowRight, Loader2, Info, Building,
   Tag, Percent, GraduationCap, CreditCard, Plus, UserPlus, QrCode,
-  Upload, Image, Trash2, ToggleLeft, ToggleRight, Smartphone
+  Upload, Image, Trash2, ToggleLeft, ToggleRight, Smartphone,
+  Shield, Lock, EyeOff, BookOpen
 } from 'lucide-react';
+import { InternalAuthModal, InternalAuthStatus } from '../components/InternalAuthModal';
+import { 
+  isInternalVerified, 
+  clearInternalAuth,
+  getInternalRecords,
+  saveInternalRecord,
+  deleteInternalRecord,
+  getInternalStats,
+  type AccountType,
+  type InternalFinanceRecord
+} from '../services/internalAuthService';
 import { User, Student, RefundRecord, FeeConfig, RefundRuleConfig, CAMPUS_FEE_STANDARDS_2025, FeePayment, PaymentQRCode, QRPaymentRecord } from '../types';
 import {
   initializeFinanceConfigs,
@@ -51,7 +63,7 @@ interface FinanceViewProps {
 }
 
 const FinanceView: React.FC<FinanceViewProps> = ({ currentUser }) => {
-  const [activeTab, setActiveTab] = useState<'payments' | 'qrcode' | 'refunds' | 'calculate' | 'standards' | 'settings'>('payments');
+  const [activeTab, setActiveTab] = useState<'payments' | 'qrcode' | 'refunds' | 'calculate' | 'standards' | 'settings' | 'internal'>('payments');
   const [students, setStudents] = useState<Student[]>([]);
   const [refundRecords, setRefundRecords] = useState<RefundRecord[]>([]);
   const [feeConfigs, setFeeConfigs] = useState<FeeConfig[]>([]);
@@ -61,6 +73,22 @@ const FinanceView: React.FC<FinanceViewProps> = ({ currentUser }) => {
   const [isCalculating, setIsCalculating] = useState(false);
   const [expandedRecord, setExpandedRecord] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  
+  // ========== 双账本相关状态 ==========
+  const [accountView, setAccountView] = useState<'public' | 'internal'>('public');  // 当前查看的账本
+  const [showAuthModal, setShowAuthModal] = useState(false);  // 二次验证弹窗
+  const [internalRecords, setInternalRecords] = useState<InternalFinanceRecord[]>([]);  // 内账记录
+  const [isInternalMode, setIsInternalMode] = useState(false);  // 是否已验证内账
+  const [showInternalForm, setShowInternalForm] = useState(false);  // 显示内账录入表单
+  const [editingInternalRecord, setEditingInternalRecord] = useState<InternalFinanceRecord | null>(null);
+  const [internalForm, setInternalForm] = useState({
+    publicAmount: 0,
+    publicDescription: '',
+    internalAmount: 0,
+    internalDescription: '',
+    internalNotes: '',
+    diffReason: ''
+  });
   
   // 缴费相关状态
   const [payments, setPayments] = useState<FeePayment[]>([]);
@@ -74,10 +102,11 @@ const FinanceView: React.FC<FinanceViewProps> = ({ currentUser }) => {
     },
     // 代办费细项（可单独选择）
     agencyItems: {
-      itemFee: false,      // 项项费 700（大班400）
+      itemFee: false,      // 杂项费 700（大班400）
       schoolBag: false,    // 书包 120
       uniform: false,      // 校服 280
     },
+    isLargeClass: false,   // 是否大班（影响杂项费）
     // 床品细项（可单独选择）
     beddingItems: {
       outerSet: false,     // 外皮170+被芯43+行李袋55=268
@@ -88,6 +117,8 @@ const FinanceView: React.FC<FinanceViewProps> = ({ currentUser }) => {
     classType: 'standard' as 'standard' | 'nursery' | 'music',  // 标准班/优苗班/音乐班
     // 缴费起始月份
     startMonth: new Date().toISOString().slice(0, 7),  // 默认当月
+    // 按天收费的起始日期（具体到日）
+    startDate: new Date().toISOString().slice(0, 10),  // 默认今天
     // 缴费周期
     periodType: 'monthly' as 'monthly' | 'semester' | 'yearly' | 'halfMonth' | 'daily',
     // 按天收费的天数
@@ -130,6 +161,96 @@ const FinanceView: React.FC<FinanceViewProps> = ({ currentUser }) => {
     loadData();
   }, [selectedMonth]);
 
+  // 检查内账验证状态
+  useEffect(() => {
+    const verified = isInternalVerified();
+    setIsInternalMode(verified);
+    if (verified) {
+      setInternalRecords(getInternalRecords());
+    }
+  }, [showAuthModal]);
+
+  // 切换到内账时需要验证
+  const handleSwitchToInternal = () => {
+    if (isInternalVerified()) {
+      setAccountView('internal');
+      setInternalRecords(getInternalRecords());
+    } else {
+      setShowAuthModal(true);
+    }
+  };
+
+  // 验证成功后
+  const handleAuthSuccess = () => {
+    setShowAuthModal(false);
+    setIsInternalMode(true);
+    setAccountView('internal');
+    setInternalRecords(getInternalRecords());
+  };
+
+  // 退出内账模式
+  const handleExitInternal = () => {
+    clearInternalAuth();
+    setIsInternalMode(false);
+    setAccountView('public');
+    setInternalRecords([]);
+  };
+
+  // 保存内账记录
+  const handleSaveInternalRecord = () => {
+    const record: InternalFinanceRecord = {
+      id: editingInternalRecord?.id || `ir_${Date.now()}`,
+      accountType: 'internal',
+      publicAmount: internalForm.publicAmount,
+      publicDescription: internalForm.publicDescription,
+      internalAmount: internalForm.internalAmount,
+      internalDescription: internalForm.internalDescription,
+      internalNotes: internalForm.internalNotes,
+      diffReason: internalForm.diffReason,
+      createdAt: editingInternalRecord?.createdAt || new Date().toISOString(),
+      createdBy: currentUser.name,
+      updatedAt: new Date().toISOString(),
+      updatedBy: currentUser.name
+    };
+    saveInternalRecord(record);
+    setInternalRecords(getInternalRecords());
+    setShowInternalForm(false);
+    setEditingInternalRecord(null);
+    setInternalForm({
+      publicAmount: 0,
+      publicDescription: '',
+      internalAmount: 0,
+      internalDescription: '',
+      internalNotes: '',
+      diffReason: ''
+    });
+  };
+
+  // 删除内账记录
+  const handleDeleteInternalRecord = (id: string) => {
+    if (confirm('确定删除此内账记录？此操作不可恢复。')) {
+      deleteInternalRecord(id);
+      setInternalRecords(getInternalRecords());
+    }
+  };
+
+  // 编辑内账记录
+  const handleEditInternalRecord = (record: InternalFinanceRecord) => {
+    setEditingInternalRecord(record);
+    setInternalForm({
+      publicAmount: record.publicAmount,
+      publicDescription: record.publicDescription,
+      internalAmount: record.internalAmount || 0,
+      internalDescription: record.internalDescription || '',
+      internalNotes: record.internalNotes || '',
+      diffReason: record.diffReason || ''
+    });
+    setShowInternalForm(true);
+  };
+
+  // 内账统计
+  const internalStats = useMemo(() => getInternalStats(), [internalRecords]);
+
   const loadData = () => {
     // 初始化配置
     initializeFinanceConfigs(campus);
@@ -139,7 +260,7 @@ const FinanceView: React.FC<FinanceViewProps> = ({ currentUser }) => {
     const filterCampus = isSuperAdmin ? undefined : campus;
 
     // 加载学生
-    const savedStudents = localStorage.getItem('kt_students_local');
+    const savedStudents = localStorage.getItem('kt_students');
     if (savedStudents) setStudents(JSON.parse(savedStudents));
 
     // 加载退费记录
@@ -191,28 +312,92 @@ const FinanceView: React.FC<FinanceViewProps> = ({ currentUser }) => {
   }, [campus, selectedMonth, refundRecords]);
 
   // 批量计算退费
+  const [calculateResult, setCalculateResult] = useState<{ 
+    processed: number; 
+    newRefunds: number; 
+    skipped: number;
+    noAttendance: number;
+    message: string;
+  } | null>(null);
+
   const handleBatchCalculate = async () => {
     setIsCalculating(true);
+    setCalculateResult(null);
     
     setTimeout(() => {
-      const newRefunds = calculateClassRefunds(filteredStudents, selectedMonth);
-      
-      // 保存新计算的退费记录
-      newRefunds.forEach(refund => {
-        // 检查是否已存在
-        const existing = refundRecords.find(r => 
-          r.studentId === refund.studentId && r.period === refund.period
-        );
-        if (!existing) {
-          saveRefundRecord(refund);
-        }
-      });
+      try {
+        let processed = 0;
+        let newRefundsCount = 0;
+        let skipped = 0;
+        let noAttendance = 0;
 
-      // 重新加载
-      const records = getRefundRecords({ campus, period: selectedMonth });
-      setRefundRecords(records);
+        // 遍历所有学生计算退费
+        for (const student of filteredStudents) {
+          processed++;
+          
+          // 获取考勤数据检查
+          const stats = getMonthlyAttendanceStats(student.id, selectedMonth);
+          
+          // 检查是否有考勤记录
+          if (stats.presentDays === 0 && stats.absentDays === 0 && 
+              stats.sickLeaveDays === 0 && stats.personalLeaveDays === 0) {
+            noAttendance++;
+            continue;
+          }
+
+          // 检查是否已存在退费记录
+          const existing = refundRecords.find(r => 
+            r.studentId === student.id && r.period === selectedMonth
+          );
+          if (existing) {
+            skipped++;
+            continue;
+          }
+
+          // 计算退费
+          const refund = calculateClassRefunds([student], selectedMonth);
+          if (refund.length > 0) {
+            saveRefundRecord(refund[0]);
+            newRefundsCount++;
+          }
+        }
+
+        // 重新加载退费记录
+        const records = getRefundRecords({ campus, period: selectedMonth });
+        setRefundRecords(records);
+
+        // 设置结果消息
+        let message = '';
+        if (newRefundsCount > 0) {
+          message = `✅ 成功计算 ${newRefundsCount} 条退费记录`;
+        } else if (noAttendance === processed) {
+          message = `⚠️ 所有学生在 ${selectedMonth} 均无考勤记录，请先在学生管理中登记考勤`;
+        } else if (skipped === processed) {
+          message = `ℹ️ 所有学生的退费记录已存在，无需重复计算`;
+        } else {
+          message = `ℹ️ 计算完成，本月无符合退费条件的学生（出勤超半月或缺勤不足3天）`;
+        }
+
+        setCalculateResult({
+          processed,
+          newRefunds: newRefundsCount,
+          skipped,
+          noAttendance,
+          message
+        });
+      } catch (error) {
+        console.error('批量计算退费出错:', error);
+        setCalculateResult({
+          processed: 0,
+          newRefunds: 0,
+          skipped: 0,
+          noAttendance: 0,
+          message: `❌ 计算出错: ${error instanceof Error ? error.message : '未知错误'}`
+        });
+      }
+      
       setIsCalculating(false);
-    }, 1000);
+    }, 500);
   };
 
   // 审批退费
@@ -252,20 +437,54 @@ const FinanceView: React.FC<FinanceViewProps> = ({ currentUser }) => {
 
   return (
     <div className="p-6 space-y-6 page-transition">
+      {/* 二次验证弹窗 */}
+      <InternalAuthModal
+        isOpen={showAuthModal}
+        onSuccess={handleAuthSuccess}
+        onCancel={() => setShowAuthModal(false)}
+        userName={currentUser.name}
+        allowSetPassword={currentUser.role === 'SUPER_ADMIN'}
+      />
+
       {/* 页面标题 */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-black text-slate-800 flex items-center gap-3">
-            <div className="p-2 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-2xl shadow-lg">
-              <Calculator className="w-6 h-6 text-white" />
+            <div 
+              className="p-2 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-2xl shadow-lg cursor-pointer"
+              onDoubleClick={() => {
+                // 双击logo切换模式（隐藏入口）
+                if (currentUser.role === 'SUPER_ADMIN' || currentUser.role === 'ADMIN') {
+                  if (accountView === 'internal') {
+                    setAccountView('public');
+                  } else {
+                    handleSwitchToInternal();
+                  }
+                }
+              }}
+              title={accountView === 'internal' ? '专业模式' : undefined}
+            >
+              <Calculator className={`w-6 h-6 text-white ${accountView === 'internal' ? 'animate-pulse' : ''}`} />
             </div>
             收费管理
+            {/* 仅在内部模式显示一个小点作为指示 */}
+            {accountView === 'internal' && (
+              <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" title="专业模式" />
+            )}
           </h1>
-          <p className="text-slate-500 mt-1 text-sm">综合收费登记，支持一次性缴纳多种费用</p>
+          <p className="text-slate-500 mt-1 text-sm">
+            综合收费登记，支持一次性缴纳多种费用
+          </p>
         </div>
         
-        {/* 月份选择 */}
+        {/* 右侧操作区 */}
         <div className="flex items-center gap-3">
+          {/* 内账状态指示 */}
+          {isInternalMode && accountView === 'internal' && (
+            <InternalAuthStatus onLogout={handleExitInternal} />
+          )}
+          
+          {/* 月份选择 */}
           <input
             type="month"
             value={selectedMonth}
@@ -315,35 +534,330 @@ const FinanceView: React.FC<FinanceViewProps> = ({ currentUser }) => {
       {/* 标签页 */}
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm">
         <div className="flex border-b border-slate-200 overflow-x-auto">
-          {[
-            { id: 'payments', label: '收费登记', icon: CreditCard },
-            { id: 'qrcode', label: '收款码', icon: QrCode, badge: qrPaymentRecords.filter(r => r.status === 'pending').length },
-            { id: 'refunds', label: '退费记录', icon: Receipt },
-            { id: 'calculate', label: '批量计算', icon: Calculator },
-            { id: 'standards', label: '收费标准', icon: Building },
-            { id: 'settings', label: '退费规则', icon: Settings },
-          ].map(tab => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id as any)}
-              className={`flex items-center gap-2 px-6 py-4 text-sm font-bold transition-all ${
-                activeTab === tab.id
-                  ? 'text-emerald-600 border-b-2 border-emerald-600 bg-emerald-50/50'
-                  : 'text-slate-500 hover:text-slate-700'
-              }`}
-            >
-              <tab.icon className="w-4 h-4" />
-              {tab.label}
-              {(tab as any).badge > 0 && (
-                <span className="px-2 py-0.5 bg-rose-500 text-white rounded-full text-xs animate-pulse">
-                  {(tab as any).badge}
-                </span>
-              )}
-            </button>
-          ))}
+          {accountView === 'public' ? (
+            // 对外账标签页
+            [
+              { id: 'payments', label: '收费登记', icon: CreditCard },
+              { id: 'qrcode', label: '收款码', icon: QrCode, badge: qrPaymentRecords.filter(r => r.status === 'pending').length },
+              { id: 'refunds', label: '退费记录', icon: Receipt },
+              { id: 'calculate', label: '批量计算', icon: Calculator },
+              { id: 'standards', label: '收费标准', icon: Building },
+              { id: 'settings', label: '退费规则', icon: Settings },
+            ].map(tab => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id as any)}
+                className={`flex items-center gap-2 px-6 py-4 text-sm font-bold transition-all ${
+                  activeTab === tab.id
+                    ? 'text-emerald-600 border-b-2 border-emerald-600 bg-emerald-50/50'
+                    : 'text-slate-500 hover:text-slate-700'
+                }`}
+              >
+                <tab.icon className="w-4 h-4" />
+                {tab.label}
+                {(tab as any).badge > 0 && (
+                  <span className="px-2 py-0.5 bg-rose-500 text-white rounded-full text-xs animate-pulse">
+                    {(tab as any).badge}
+                  </span>
+                )}
+              </button>
+            ))
+          ) : (
+            // 专业模式标签页（隐蔽命名）
+            [
+              { id: 'internal', label: '备注记录', icon: FileText },
+              { id: 'payments', label: '常规视图', icon: Eye },
+            ].map(tab => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id as any)}
+                className={`flex items-center gap-2 px-6 py-4 text-sm font-bold transition-all ${
+                  activeTab === tab.id
+                    ? 'text-slate-700 border-b-2 border-slate-400 bg-slate-50/50'
+                    : 'text-slate-500 hover:text-slate-700'
+                }`}
+              >
+                <tab.icon className="w-4 h-4" />
+                {tab.label}
+              </button>
+            ))
+          )}
         </div>
 
         <div className="p-6">
+          {/* ========== 专业模式视图 ========== */}
+          {accountView === 'internal' && activeTab === 'internal' && (
+            <div className="space-y-6">
+              {/* 统计卡片 - 使用中性表述 */}
+              <div className="grid grid-cols-4 gap-4">
+                <div className="bg-gradient-to-br from-slate-500 to-slate-600 rounded-2xl p-5 text-white shadow-lg">
+                  <div className="flex items-center gap-2 mb-2">
+                    <FileText className="w-5 h-5 opacity-80" />
+                    <span className="text-sm font-bold opacity-80">备注条目</span>
+                  </div>
+                  <p className="text-3xl font-black">{internalStats.recordCount}</p>
+                </div>
+                <div className="bg-gradient-to-br from-slate-400 to-slate-500 rounded-2xl p-5 text-white shadow-lg">
+                  <div className="flex items-center gap-2 mb-2">
+                    <BookOpen className="w-5 h-5 opacity-80" />
+                    <span className="text-sm font-bold opacity-80">A列</span>
+                  </div>
+                  <p className="text-3xl font-black">¥{(internalStats.publicTotal / 1000).toFixed(1)}k</p>
+                </div>
+                <div className="bg-gradient-to-br from-slate-600 to-slate-700 rounded-2xl p-5 text-white shadow-lg">
+                  <div className="flex items-center gap-2 mb-2">
+                    <FileText className="w-5 h-5 opacity-80" />
+                    <span className="text-sm font-bold opacity-80">B列</span>
+                  </div>
+                  <p className="text-3xl font-black">¥{(internalStats.internalTotal / 1000).toFixed(1)}k</p>
+                </div>
+                <div className="bg-gradient-to-br from-slate-500 to-slate-600 rounded-2xl p-5 text-white shadow-lg">
+                  <div className="flex items-center gap-2 mb-2">
+                    <TrendingUp className="w-5 h-5 opacity-80" />
+                    <span className="text-sm font-bold opacity-80">差值</span>
+                  </div>
+                  <p className="text-3xl font-black">
+                    {internalStats.difference >= 0 ? '+' : ''}¥{(internalStats.difference / 1000).toFixed(1)}k
+                  </p>
+                  <p className="text-sm opacity-80">({internalStats.differencePercent}%)</p>
+                </div>
+              </div>
+
+              {/* 提示信息 - 简化 */}
+              <div className="flex items-center gap-2 text-xs text-slate-400">
+                <Info className="w-3 h-3" />
+                <span>专业模式 · 操作已记录</span>
+              </div>
+
+              {/* 操作栏 */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <span className="text-sm text-slate-500">共 {internalRecords.length} 条记录</span>
+                </div>
+                <button
+                  onClick={() => {
+                    setEditingInternalRecord(null);
+                    setInternalForm({
+                      publicAmount: 0,
+                      publicDescription: '',
+                      internalAmount: 0,
+                      internalDescription: '',
+                      internalNotes: '',
+                      diffReason: ''
+                    });
+                    setShowInternalForm(true);
+                  }}
+                  className="flex items-center gap-2 px-5 py-2.5 bg-slate-600 text-white rounded-xl font-bold hover:bg-slate-700 transition-colors"
+                >
+                  <Plus className="w-4 h-4" />
+                  新增
+                </button>
+              </div>
+
+              {/* 录入表单 */}
+              {showInternalForm && (
+                <div className="bg-slate-50 rounded-2xl border border-slate-200 p-6 space-y-4">
+                  <h3 className="font-bold text-lg text-slate-800 flex items-center gap-2">
+                    <FileText className="w-5 h-5 text-slate-600" />
+                    {editingInternalRecord ? '编辑记录' : '新增记录'}
+                  </h3>
+                  
+                  <div className="grid grid-cols-2 gap-6">
+                    {/* A列数据 */}
+                    <div className="space-y-4">
+                      <h4 className="font-bold text-slate-600 flex items-center gap-2">
+                        A列
+                      </h4>
+                      <div>
+                        <label className="text-sm text-slate-600">金额</label>
+                        <input
+                          type="number"
+                          value={internalForm.publicAmount}
+                          onChange={e => setInternalForm(f => ({ ...f, publicAmount: Number(e.target.value) }))}
+                          className="w-full mt-1 px-4 py-2 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-slate-400"
+                          placeholder="金额"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-sm text-slate-600">说明</label>
+                        <input
+                          type="text"
+                          value={internalForm.publicDescription}
+                          onChange={e => setInternalForm(f => ({ ...f, publicDescription: e.target.value }))}
+                          className="w-full mt-1 px-4 py-2 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-slate-400"
+                          placeholder="说明"
+                        />
+                      </div>
+                    </div>
+                    
+                    {/* B列数据 */}
+                    <div className="space-y-4">
+                      <h4 className="font-bold text-slate-700 flex items-center gap-2">
+                        B列
+                      </h4>
+                      <div>
+                        <label className="text-sm text-slate-600">金额</label>
+                        <input
+                          type="number"
+                          value={internalForm.internalAmount}
+                          onChange={e => setInternalForm(f => ({ ...f, internalAmount: Number(e.target.value) }))}
+                          className="w-full mt-1 px-4 py-2 border border-slate-300 rounded-xl outline-none focus:ring-2 focus:ring-slate-500 bg-slate-100"
+                          placeholder="金额"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-sm text-slate-600">说明</label>
+                        <input
+                          type="text"
+                          value={internalForm.internalDescription}
+                          onChange={e => setInternalForm(f => ({ ...f, internalDescription: e.target.value }))}
+                          className="w-full mt-1 px-4 py-2 border border-slate-300 rounded-xl outline-none focus:ring-2 focus:ring-slate-500 bg-slate-100"
+                          placeholder="说明"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* 备注 */}
+                  <div className="grid grid-cols-2 gap-6">
+                    <div>
+                      <label className="text-sm text-slate-600">差异说明</label>
+                      <input
+                        type="text"
+                        value={internalForm.diffReason}
+                        onChange={e => setInternalForm(f => ({ ...f, diffReason: e.target.value }))}
+                        className="w-full mt-1 px-4 py-2 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-slate-400"
+                        placeholder="原因"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm text-slate-600">备注</label>
+                      <input
+                        type="text"
+                        value={internalForm.internalNotes}
+                        onChange={e => setInternalForm(f => ({ ...f, internalNotes: e.target.value }))}
+                        className="w-full mt-1 px-4 py-2 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-slate-400"
+                        placeholder="备注"
+                      />
+                    </div>
+                  </div>
+                  
+                  {/* 预览 */}
+                  {(internalForm.publicAmount > 0 || internalForm.internalAmount > 0) && (
+                    <div className="bg-white rounded-xl p-4 border border-slate-200">
+                      <p className="text-sm text-slate-500 mb-2">预览：</p>
+                      <div className="flex items-center gap-4 text-sm">
+                        <span className="text-slate-600">A: ¥{internalForm.publicAmount}</span>
+                        <ArrowRight className="w-4 h-4 text-slate-400" />
+                        <span className="text-slate-700">B: ¥{internalForm.internalAmount}</span>
+                        <span className={`font-bold ${
+                          internalForm.internalAmount - internalForm.publicAmount >= 0 ? 'text-slate-600' : 'text-slate-800'
+                        }`}>
+                          Δ = {internalForm.internalAmount - internalForm.publicAmount >= 0 ? '+' : ''}
+                          ¥{internalForm.internalAmount - internalForm.publicAmount}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* 操作按钮 */}
+                  <div className="flex justify-end gap-3 pt-4">
+                    <button
+                      onClick={() => {
+                        setShowInternalForm(false);
+                        setEditingInternalRecord(null);
+                      }}
+                      className="px-5 py-2.5 bg-slate-200 text-slate-700 rounded-xl font-bold hover:bg-slate-300 transition-colors"
+                    >
+                      取消
+                    </button>
+                    <button
+                      onClick={handleSaveInternalRecord}
+                      className="px-5 py-2.5 bg-slate-600 text-white rounded-xl font-bold hover:bg-slate-700 transition-colors flex items-center gap-2"
+                    >
+                      <Check className="w-4 h-4" />
+                      保存
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* 记录列表 */}
+              {internalRecords.length === 0 ? (
+                <div className="text-center py-16 text-slate-400">
+                  <FileText className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                  <p className="font-bold">暂无记录</p>
+                  <p className="text-sm mt-1">点击"新增"添加数据</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {internalRecords.map(record => (
+                    <div 
+                      key={record.id}
+                      className="bg-white rounded-xl border border-slate-200 p-4 hover:border-slate-300 transition-all"
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1 grid grid-cols-3 gap-6">
+                          {/* A列 */}
+                          <div>
+                            <p className="text-xs text-slate-400 mb-1">A</p>
+                            <p className="text-lg font-bold text-slate-700">¥{record.publicAmount.toLocaleString()}</p>
+                            <p className="text-sm text-slate-500">{record.publicDescription}</p>
+                          </div>
+                          
+                          {/* B列 */}
+                          <div>
+                            <p className="text-xs text-slate-500 mb-1">B</p>
+                            <p className="text-lg font-bold text-slate-800">¥{(record.internalAmount || 0).toLocaleString()}</p>
+                            <p className="text-sm text-slate-600">{record.internalDescription || '-'}</p>
+                          </div>
+                          
+                          {/* 差值 */}
+                          <div>
+                            <p className="text-xs text-slate-400 mb-1">Δ</p>
+                            <p className={`text-lg font-bold text-slate-600`}>
+                              {(record.internalAmount || 0) - record.publicAmount >= 0 ? '+' : ''}
+                              ¥{((record.internalAmount || 0) - record.publicAmount).toLocaleString()}
+                            </p>
+                            <p className="text-sm text-slate-400">{record.diffReason || '-'}</p>
+                          </div>
+                        </div>
+                        
+                        {/* 操作按钮 */}
+                        <div className="flex items-center gap-2 ml-4">
+                          <button
+                            onClick={() => handleEditInternalRecord(record)}
+                            className="p-2 hover:bg-slate-100 rounded-lg text-slate-500 transition-colors"
+                            title="编辑"
+                          >
+                            <FileText className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteInternalRecord(record.id)}
+                            className="p-2 hover:bg-slate-100 rounded-lg text-slate-400 transition-colors"
+                            title="删除"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                      
+                      {/* 备注和元数据 */}
+                      {(record.internalNotes || record.createdBy) && (
+                        <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-400">
+                          <span>{record.internalNotes}</span>
+                          <span>
+                            {new Date(record.createdAt).toLocaleDateString()}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* 收费登记 */}
           {activeTab === 'payments' && (
             <div className="space-y-6">
@@ -984,7 +1498,7 @@ const FinanceView: React.FC<FinanceViewProps> = ({ currentUser }) => {
 
                   <button
                     onClick={handleBatchCalculate}
-                    disabled={isCalculating}
+                    disabled={isCalculating || filteredStudents.length === 0}
                     className="flex-1 flex items-center justify-center gap-3 px-6 py-3 bg-emerald-600 hover:bg-emerald-700 rounded-xl font-black transition-colors disabled:opacity-50"
                   >
                     {isCalculating ? (
@@ -1000,6 +1514,35 @@ const FinanceView: React.FC<FinanceViewProps> = ({ currentUser }) => {
                     )}
                   </button>
                 </div>
+
+                {/* 计算结果反馈 */}
+                {calculateResult && (
+                  <div className={`mt-4 p-4 rounded-xl ${
+                    calculateResult.newRefunds > 0 ? 'bg-emerald-900/50 border border-emerald-500' :
+                    calculateResult.noAttendance > 0 ? 'bg-amber-900/50 border border-amber-500' :
+                    'bg-blue-900/50 border border-blue-500'
+                  }`}>
+                    <p className="font-bold text-white mb-2">{calculateResult.message}</p>
+                    <div className="grid grid-cols-4 gap-3 text-sm text-white/70">
+                      <div>
+                        <p className="text-white/50">处理学生</p>
+                        <p className="font-bold text-white">{calculateResult.processed}</p>
+                      </div>
+                      <div>
+                        <p className="text-white/50">新增退费</p>
+                        <p className="font-bold text-emerald-400">{calculateResult.newRefunds}</p>
+                      </div>
+                      <div>
+                        <p className="text-white/50">已存在跳过</p>
+                        <p className="font-bold text-blue-400">{calculateResult.skipped}</p>
+                      </div>
+                      <div>
+                        <p className="text-white/50">无考勤数据</p>
+                        <p className="font-bold text-amber-400">{calculateResult.noAttendance}</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* 计算规则说明（基于2025年9月1日政策） */}
@@ -1112,11 +1655,25 @@ const FinanceView: React.FC<FinanceViewProps> = ({ currentUser }) => {
                   <Info className="w-4 h-4" />
                   收费说明
                 </h4>
-                <ul className="text-sm text-blue-700 space-y-1">
-                  <li>1. <strong>代办费包含：</strong>项项费700（大班400）、书包120、校服280、床品428（外投170+被芯43+行李袋55=268，内芯三件160）</li>
-                  <li>2. 本列出的收费项均为此收费区间的收费标准</li>
-                  <li>3. 优苗班针对不足两岁的幼儿</li>
-                  <li>4. 如有特殊优惠（老生、员工子女等），请在学生管理中设置</li>
+                <ul className="text-sm text-blue-700 space-y-2">
+                  <li>
+                    <strong>1. 代办费包含：</strong>
+                    <ul className="ml-4 mt-1 space-y-0.5 text-blue-600">
+                      <li>• 杂项费 ¥700（大班 ¥400）</li>
+                      <li>• 书包 ¥120</li>
+                      <li>• 校服 ¥280</li>
+                    </ul>
+                  </li>
+                  <li>
+                    <strong>2. 床品费 ¥428：</strong>
+                    <ul className="ml-4 mt-1 space-y-0.5 text-blue-600">
+                      <li>• 外皮套装 ¥268（外皮¥170 + 凉席¥43 + 行李袋¥55）</li>
+                      <li>• 内芯三件 ¥160</li>
+                    </ul>
+                  </li>
+                  <li>3. <strong>未列出的收费项，均为无此收费区间的收费标准</strong></li>
+                  <li>4. 优苗班针对不足两岁的幼儿</li>
+                  <li>5. 如有特殊优惠（老生、员工子女等），请在学生管理中设置</li>
                 </ul>
               </div>
 
@@ -1491,29 +2048,6 @@ const FinanceView: React.FC<FinanceViewProps> = ({ currentUser }) => {
                     </div>
                   </div>
 
-                  {/* 是否新生 */}
-                  <div className="flex items-center gap-3 p-3 bg-amber-50 rounded-xl border border-amber-200">
-                    <input
-                      type="checkbox"
-                      id="isNewStudent"
-                      checked={paymentForm.isNewStudent}
-                      onChange={e => setPaymentForm(prev => ({
-                        ...prev,
-                        isNewStudent: e.target.checked,
-                        beddingItems: e.target.checked 
-                          ? { outerSet: false, innerSet: false, fullSet: true }
-                          : { outerSet: false, innerSet: false, fullSet: false },
-                        agencyItems: e.target.checked
-                          ? { itemFee: true, schoolBag: true, uniform: true }
-                          : { itemFee: false, schoolBag: false, uniform: false },
-                      }))}
-                      className="w-4 h-4 rounded text-amber-600"
-                    />
-                    <label htmlFor="isNewStudent" className="text-sm font-bold text-amber-800 cursor-pointer">
-                      新生入园（自动选中全套代办+床品）
-                    </label>
-                  </div>
-
                   {/* 费用类型 - 多选 */}
                   <div>
                     <label className="block text-sm font-bold text-slate-700 mb-2">
@@ -1563,113 +2097,46 @@ const FinanceView: React.FC<FinanceViewProps> = ({ currentUser }) => {
                         </label>
                       ))}
                     </div>
-
-                    {/* 代办费细项 - 可单独选择 */}
-                    <p className="text-xs text-slate-500 mb-2">📦 代办费（可单独选购）</p>
-                    <div className="grid grid-cols-3 gap-2 mb-4">
-                      {[
-                        { key: 'itemFee', label: '项项费', price: 700, desc: '大班400' },
-                        { key: 'schoolBag', label: '书包', price: 120, desc: '入园书包' },
-                        { key: 'uniform', label: '校服', price: 280, desc: '园服一套' },
-                      ].map(item => (
-                        <label
-                          key={item.key}
-                          className={`p-3 rounded-xl border-2 cursor-pointer transition-all ${
-                            paymentForm.agencyItems[item.key as keyof typeof paymentForm.agencyItems]
-                              ? 'border-purple-500 bg-purple-50'
-                              : 'border-slate-200 bg-white hover:border-slate-300'
-                          }`}
-                        >
-                          <div className="flex items-center gap-2 mb-1">
-                            <input
-                              type="checkbox"
-                              checked={paymentForm.agencyItems[item.key as keyof typeof paymentForm.agencyItems]}
-                              onChange={e => setPaymentForm(prev => ({
-                                ...prev,
-                                agencyItems: { ...prev.agencyItems, [item.key]: e.target.checked }
-                              }))}
-                              className="w-3 h-3 rounded text-purple-600"
-                            />
-                            <span className={`text-xs font-bold ${
-                              paymentForm.agencyItems[item.key as keyof typeof paymentForm.agencyItems]
-                                ? 'text-purple-700' : 'text-slate-600'
-                            }`}>{item.label}</span>
-                          </div>
-                          <p className="text-lg font-black text-purple-600">¥{item.price}</p>
-                          <p className="text-[10px] text-slate-400">{item.desc}</p>
-                        </label>
-                      ))}
-                    </div>
-
-                    {/* 床品细项 - 可单独选择 */}
-                    <p className="text-xs text-slate-500 mb-2">🛏️ 床品费（可单独选购）</p>
-                    <div className="grid grid-cols-3 gap-2">
-                      {[
-                        { key: 'outerSet', label: '外皮套装', price: 268, desc: '外投170+被芯43+行李袋55' },
-                        { key: 'innerSet', label: '内芯三件', price: 160, desc: '床垫/枕芯/被芯' },
-                        { key: 'fullSet', label: '床品全套', price: 428, desc: '外皮+内芯完整套装' },
-                      ].map(item => (
-                        <label
-                          key={item.key}
-                          className={`p-3 rounded-xl border-2 cursor-pointer transition-all ${
-                            paymentForm.beddingItems[item.key as keyof typeof paymentForm.beddingItems]
-                              ? 'border-amber-500 bg-amber-50'
-                              : 'border-slate-200 bg-white hover:border-slate-300'
-                          }`}
-                        >
-                          <div className="flex items-center gap-2 mb-1">
-                            <input
-                              type="checkbox"
-                              checked={paymentForm.beddingItems[item.key as keyof typeof paymentForm.beddingItems]}
-                              onChange={e => {
-                                // 选择全套时，取消外皮和内芯的单独选择
-                                if (item.key === 'fullSet' && e.target.checked) {
-                                  setPaymentForm(prev => ({
-                                    ...prev,
-                                    beddingItems: { outerSet: false, innerSet: false, fullSet: true }
-                                  }));
-                                } else if ((item.key === 'outerSet' || item.key === 'innerSet') && e.target.checked) {
-                                  // 选择单独项时，取消全套选择
-                                  setPaymentForm(prev => ({
-                                    ...prev,
-                                    beddingItems: { ...prev.beddingItems, [item.key]: true, fullSet: false }
-                                  }));
-                                } else {
-                                  setPaymentForm(prev => ({
-                                    ...prev,
-                                    beddingItems: { ...prev.beddingItems, [item.key]: e.target.checked }
-                                  }));
-                                }
-                              }}
-                              className="w-3 h-3 rounded text-amber-600"
-                            />
-                            <span className={`text-xs font-bold ${
-                              paymentForm.beddingItems[item.key as keyof typeof paymentForm.beddingItems]
-                                ? 'text-amber-700' : 'text-slate-600'
-                            }`}>{item.label}</span>
-                          </div>
-                          <p className="text-lg font-black text-amber-600">¥{item.price}</p>
-                          <p className="text-[10px] text-slate-400 leading-tight">{item.desc}</p>
-                        </label>
-                      ))}
-                    </div>
                   </div>
 
-                  {/* 缴费起始月份 */}
+                  {/* 缴费起始日期/月份 */}
                   <div>
                     <label className="block text-sm font-bold text-slate-700 mb-2">
-                      📅 缴费起始月份
-                      <span className="text-xs text-slate-400 font-normal ml-2">选择从哪个月开始计费</span>
+                      📅 {paymentForm.periodType === 'daily' ? '入园起始日期' : '缴费起始月份'}
+                      <span className="text-xs text-slate-400 font-normal ml-2">
+                        {paymentForm.periodType === 'daily' ? '选择从哪天开始入园' : '选择从哪个月开始计费'}
+                      </span>
                     </label>
                     <div className="flex items-center gap-3">
-                      <input
-                        type="month"
-                        value={paymentForm.startMonth}
-                        onChange={e => setPaymentForm(prev => ({ ...prev, startMonth: e.target.value }))}
-                        className="flex-1 px-4 py-3 border border-slate-200 rounded-xl font-bold text-slate-700 focus:ring-2 focus:ring-blue-400 outline-none"
-                      />
+                      {paymentForm.periodType === 'daily' ? (
+                        /* 按天收费：显示具体日期选择器 */
+                        <input
+                          type="date"
+                          value={paymentForm.startDate}
+                          onChange={e => setPaymentForm(prev => ({ ...prev, startDate: e.target.value }))}
+                          className="flex-1 px-4 py-3 border border-rose-200 rounded-xl font-bold text-rose-700 focus:ring-2 focus:ring-rose-400 outline-none bg-rose-50"
+                        />
+                      ) : (
+                        /* 其他周期：显示月份选择器 */
+                        <input
+                          type="month"
+                          value={paymentForm.startMonth}
+                          onChange={e => setPaymentForm(prev => ({ ...prev, startMonth: e.target.value }))}
+                          className="flex-1 px-4 py-3 border border-slate-200 rounded-xl font-bold text-slate-700 focus:ring-2 focus:ring-blue-400 outline-none"
+                        />
+                      )}
                       <div className="text-sm text-slate-500">
                         {(() => {
+                          if (paymentForm.periodType === 'daily') {
+                            // 按天收费时显示结束日期
+                            if (paymentForm.startDate && paymentForm.dailyDays > 0) {
+                              const start = new Date(paymentForm.startDate);
+                              const end = new Date(start);
+                              end.setDate(end.getDate() + paymentForm.dailyDays - 1);
+                              return `→ ${end.toISOString().slice(0, 10)}`;
+                            }
+                            return '';
+                          }
                           const months = paymentForm.periodType === 'yearly' ? 12 : 
                                         paymentForm.periodType === 'semester' ? 6 : 1;
                           if (months > 1) {
@@ -1683,7 +2150,10 @@ const FinanceView: React.FC<FinanceViewProps> = ({ currentUser }) => {
                       </div>
                     </div>
                     <p className="text-[10px] text-blue-600 mt-1">
-                      💡 例如：交3-8月的费，起始月份选"2026-03"，周期选"半年"
+                      {paymentForm.periodType === 'daily' 
+                        ? '💡 按天收费从指定日期开始计算入园天数'
+                        : '💡 例如：交3-8月的费，起始月份选"2026-03"，周期选"半年"'
+                      }
                     </p>
                   </div>
 
@@ -1776,14 +2246,14 @@ const FinanceView: React.FC<FinanceViewProps> = ({ currentUser }) => {
                     }
                     
                     // 计算代办费细项
+                    const itemFeePrice = paymentForm.isLargeClass ? 400 : 700;
                     const agencyTotal = 
-                      (paymentForm.agencyItems.itemFee ? 700 : 0) +
+                      (paymentForm.agencyItems.itemFee ? itemFeePrice : 0) +
                       (paymentForm.agencyItems.schoolBag ? 120 : 0) +
                       (paymentForm.agencyItems.uniform ? 280 : 0);
                     
                     // 计算床品费细项
                     const beddingTotal = 
-                      paymentForm.beddingItems.fullSet ? 428 :
                       (paymentForm.beddingItems.outerSet ? 268 : 0) +
                       (paymentForm.beddingItems.innerSet ? 160 : 0);
                     
@@ -1821,11 +2291,11 @@ const FinanceView: React.FC<FinanceViewProps> = ({ currentUser }) => {
                       ? paymentForm.customAmount
                       : standardAmount - discountAmount;
 
-                    const hasAnyFee = paymentForm.selectedFees.tuition || paymentForm.selectedFees.meal || agencyTotal > 0 || beddingTotal > 0;
+                    const hasAnyFee = paymentForm.selectedFees.tuition || paymentForm.selectedFees.meal;
 
                     return (
                       <div className="bg-gradient-to-br from-slate-50 to-slate-100 rounded-xl p-4 border border-slate-200">
-                        {/* 费用明细 */}
+                        {/* 费用明细 - 只显示保教费和伙食费 */}
                         {hasAnyFee ? (
                           <>
                             <p className="text-xs font-bold text-slate-500 mb-3">📋 费用明细 
@@ -1844,43 +2314,6 @@ const FinanceView: React.FC<FinanceViewProps> = ({ currentUser }) => {
                                 <div className="flex justify-between items-center text-sm">
                                   <span className="text-slate-600">伙食费 × {periodLabel}</span>
                                   <span className="font-bold text-emerald-600">¥{feeDetails.meal.toLocaleString()}</span>
-                                </div>
-                              )}
-                              {agencyTotal > 0 && (
-                                <div className="border-t border-slate-200 pt-2 space-y-1">
-                                  <p className="text-xs text-purple-600 font-bold">代办费明细：</p>
-                                  {paymentForm.agencyItems.itemFee && (
-                                    <div className="flex justify-between items-center text-sm pl-3">
-                                      <span className="text-slate-500">├ 项项费</span>
-                                      <span className="font-bold text-purple-600">¥700</span>
-                                    </div>
-                                  )}
-                                  {paymentForm.agencyItems.schoolBag && (
-                                    <div className="flex justify-between items-center text-sm pl-3">
-                                      <span className="text-slate-500">├ 书包</span>
-                                      <span className="font-bold text-purple-600">¥120</span>
-                                    </div>
-                                  )}
-                                  {paymentForm.agencyItems.uniform && (
-                                    <div className="flex justify-between items-center text-sm pl-3">
-                                      <span className="text-slate-500">└ 校服</span>
-                                      <span className="font-bold text-purple-600">¥280</span>
-                                    </div>
-                                  )}
-                                </div>
-                              )}
-                              {beddingTotal > 0 && (
-                                <div className="border-t border-slate-200 pt-2">
-                                  <div className="flex justify-between items-center text-sm">
-                                    <span className="text-slate-600">
-                                      床品费
-                                      <span className="text-xs text-slate-400 ml-1">
-                                        ({paymentForm.beddingItems.fullSet ? '全套' : 
-                                          [paymentForm.beddingItems.outerSet && '外皮套装', paymentForm.beddingItems.innerSet && '内芯三件'].filter(Boolean).join('+')})
-                                      </span>
-                                    </span>
-                                    <span className="font-bold text-amber-600">¥{beddingTotal.toLocaleString()}</span>
-                                  </div>
                                 </div>
                               )}
                             </div>
@@ -2147,9 +2580,11 @@ const FinanceView: React.FC<FinanceViewProps> = ({ currentUser }) => {
                   setPaymentForm({
                     selectedFees: { tuition: true, meal: true },
                     agencyItems: { itemFee: false, schoolBag: false, uniform: false },
+                    isLargeClass: false,
                     beddingItems: { outerSet: false, innerSet: false, fullSet: false },
                     classType: 'standard',
                     startMonth: new Date().toISOString().slice(0, 7),
+                    startDate: new Date().toISOString().slice(0, 10),
                     periodType: 'monthly',
                     dailyDays: 15,
                     paymentMethod: 'wechat',
@@ -2225,9 +2660,11 @@ const FinanceView: React.FC<FinanceViewProps> = ({ currentUser }) => {
                     setPaymentForm({
                       selectedFees: { tuition: true, meal: true },
                       agencyItems: { itemFee: false, schoolBag: false, uniform: false },
+                      isLargeClass: false,
                       beddingItems: { outerSet: false, innerSet: false, fullSet: false },
                       classType: 'standard',
                       startMonth: new Date().toISOString().slice(0, 7),
+                      startDate: new Date().toISOString().slice(0, 10),
                       periodType: 'monthly',
                       dailyDays: 15,
                       paymentMethod: 'wechat',

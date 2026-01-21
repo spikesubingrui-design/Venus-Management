@@ -12,6 +12,7 @@ import {
 } from 'recharts';
 import { User, Student, Teacher, Announcement, AppView } from '../types';
 import { NaturalCard, NaturalButton, StatCard, PageTitle, Badge, WaveDivider, NaturalPattern, EmptyState } from '../components/NaturalUI';
+import DataSyncPanel from '../components/DataSyncPanel';
 
 interface DashboardViewProps {
   user: User;
@@ -35,7 +36,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ user, onNavigate }) => {
   const loadAllData = () => {
     setLoading(true);
     
-    const savedStudents = localStorage.getItem('kt_students_local');
+    const savedStudents = localStorage.getItem('kt_students');
     if (savedStudents) setStudents(JSON.parse(savedStudents));
     
     const savedTeachers = localStorage.getItem('kt_teachers');
@@ -129,7 +130,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ user, onNavigate }) => {
             id: list.length + 1,
             type: '健康',
             msg: `${student.name} 体温偏高 (${temp}°C)`,
-            time: record.recordedAt ? new Date(record.recordedAt).toLocaleTimeString() : '今日',
+            time: record.recordedAt ? new Date(record.recordedAt).toLocaleTimeString('zh-CN') : '今日',
             level: temp >= 38 ? 'critical' : 'warning'
           });
         }
@@ -336,40 +337,45 @@ const DashboardView: React.FC<DashboardViewProps> = ({ user, onNavigate }) => {
         </NaturalCard>
       </div>
 
-      {/* 快捷入口 + 告警 */}
+      {/* 快捷入口 + 云端同步 + 告警 */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* 快捷功能入口 - 自然风格 */}
-        <div 
-          className="rounded-3xl p-6 relative overflow-hidden shadow-xl"
-          style={{ background: 'linear-gradient(135deg, #3d4a32 0%, #4a5d3a 100%)' }}
-        >
-          <NaturalPattern className="opacity-10" />
-          <div className="relative">
-            <h3 className="font-bold text-lg mb-4 text-white flex items-center gap-2">
-              <Sprout className="w-5 h-5 text-[#c9dbb8]" />
-              快捷操作
-            </h3>
-            <div className="grid grid-cols-2 gap-3">
-              {[
-                { icon: Users, label: '幼儿档案', color: '#6b7c5c', view: AppView.STUDENTS },
-                { icon: UserCheck, label: '快速考勤', color: '#8b9d7c', view: AppView.STUDENTS },
-                { icon: UtensilsCrossed, label: '营养厨房', color: '#c9a962', view: AppView.KITCHEN },
-                { icon: BookOpen, label: '课程计划', color: '#8b6f47', view: AppView.CURRICULUM },
-              ].map((item, idx) => (
-                <button 
-                  key={idx} 
-                  onClick={() => onNavigate?.(item.view)}
-                  className="p-4 rounded-2xl flex flex-col items-center gap-2 hover:scale-105 transition-all shadow-lg active:scale-95 border-2 border-white/10"
-                  style={{ backgroundColor: item.color }}
-                >
-                  <item.icon className="w-6 h-6 text-white" />
-                  <span className="text-xs font-bold text-white">{item.label}</span>
-                </button>
-              ))}
+        <div className="space-y-4">
+          <div 
+            className="rounded-3xl p-6 relative overflow-hidden shadow-xl"
+            style={{ background: 'linear-gradient(135deg, #3d4a32 0%, #4a5d3a 100%)' }}
+          >
+            <NaturalPattern className="opacity-10" />
+            <div className="relative">
+              <h3 className="font-bold text-lg mb-4 text-white flex items-center gap-2">
+                <Sprout className="w-5 h-5 text-[#c9dbb8]" />
+                快捷操作
+              </h3>
+              <div className="grid grid-cols-2 gap-3">
+                {[
+                  { icon: Users, label: '幼儿档案', color: '#6b7c5c', view: AppView.STUDENTS },
+                  { icon: UserCheck, label: '快速考勤', color: '#8b9d7c', view: AppView.STUDENTS },
+                  { icon: UtensilsCrossed, label: '营养厨房', color: '#c9a962', view: AppView.KITCHEN },
+                  { icon: BookOpen, label: '课程计划', color: '#8b6f47', view: AppView.CURRICULUM },
+                ].map((item, idx) => (
+                  <button 
+                    key={idx} 
+                    onClick={() => onNavigate?.(item.view)}
+                    className="p-4 rounded-2xl flex flex-col items-center gap-2 hover:scale-105 transition-all shadow-lg active:scale-95 border-2 border-white/10"
+                    style={{ backgroundColor: item.color }}
+                  >
+                    <item.icon className="w-6 h-6 text-white" />
+                    <span className="text-xs font-bold text-white">{item.label}</span>
+                  </button>
+                ))}
+              </div>
             </div>
+            {/* 装饰叶子 */}
+            <Leaf className="absolute -bottom-4 -right-4 w-24 h-24 text-white/5 rotate-45" />
           </div>
-          {/* 装饰叶子 */}
-          <Leaf className="absolute -bottom-4 -right-4 w-24 h-24 text-white/5 rotate-45" />
+          
+          {/* 云端数据同步面板 */}
+          <DataSyncPanel campus={user.campus} onSyncComplete={loadAllData} />
         </div>
 
         {/* 告警列表 */}

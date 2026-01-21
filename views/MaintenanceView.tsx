@@ -352,7 +352,7 @@ const MaintenanceView: React.FC<MaintenanceViewProps> = ({ currentUser }) => {
                           <div>
                             <p className="font-bold text-slate-800">{record.assetName}</p>
                             <p className="text-xs text-slate-500">
-                              {record.location} · {new Date(record.reportedAt).toLocaleDateString()}
+                              {record.location} · {new Date(record.reportedAt).toLocaleDateString('zh-CN')}
                             </p>
                           </div>
                         </div>

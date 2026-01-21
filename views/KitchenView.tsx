@@ -4,7 +4,7 @@ import {
   Utensils, Sparkles, Loader2, CheckCircle2,
   History, Save, ChevronRight, Trash2, Calendar, Scale, 
   Apple, Flame, Beef, Wheat, Milk, Info, Plus, Lightbulb, AlertTriangle,
-  BarChart3, Building2, Users, TrendingUp, Lock, Upload, Edit
+  BarChart3, Building2, Users, TrendingUp, Lock, Upload, Edit, ChevronDown, Brain
 } from 'lucide-react';
 import { generateWeeklyRecipe } from '../services/geminiService';
 import { WeeklyRecipeRecord, CampusGrade, DailyRecipe, MealDish, CAMPUS_CONFIG, User } from '../types';
@@ -52,12 +52,24 @@ const KitchenView: React.FC<KitchenViewProps> = ({ currentUser }) => {
   const [selectedHistoryRecord, setSelectedHistoryRecord] = useState<WeeklyRecipeRecord | null>(null);
   const [historyDetailDayIdx, setHistoryDetailDayIdx] = useState(0);
   const [isEditingHistory, setIsEditingHistory] = useState(false);
+  
+  // AI生成窗口最小化状态
+  const [isAIMinimized, setIsAIMinimized] = useState(false);
 
   useEffect(() => {
-    const savedHistory = localStorage.getItem('kt_kitchen_history_v2');
-    if (savedHistory) setHistory(JSON.parse(savedHistory));
+    // 统一以 kt_meal_plans 为准（与云端同步一致），兼容旧 key：kt_kitchen_history_v2
+    const savedMealPlans = localStorage.getItem(STORAGE_KEYS.MEAL_PLANS);
+    const legacyHistory = localStorage.getItem('kt_kitchen_history_v2');
+    if (savedMealPlans) {
+      setHistory(JSON.parse(savedMealPlans));
+    } else if (legacyHistory) {
+      // 一次性迁移：旧数据搬到新 key，避免网站/小程序“食谱丢失”
+      localStorage.setItem(STORAGE_KEYS.MEAL_PLANS, legacyHistory);
+      setHistory(JSON.parse(legacyHistory));
+      localStorage.removeItem('kt_kitchen_history_v2');
+    }
     
-    const savedStudents = localStorage.getItem('kt_students_local');
+    const savedStudents = localStorage.getItem('kt_students');
     if (savedStudents) {
       const count = JSON.parse(savedStudents).length;
       if (count > 0) setHeadcount(count);
@@ -80,6 +92,7 @@ const KitchenView: React.FC<KitchenViewProps> = ({ currentUser }) => {
   const handleCreateNewWeek = async () => {
     setLoading(true);
     setActiveDayIdx(0);
+    setIsAIMinimized(false); // 开始时显示进度窗口
     try {
       const record = await generateWeeklyRecipe(grade, headcount);
       setCurrentRecord(record);
@@ -89,6 +102,7 @@ const KitchenView: React.FC<KitchenViewProps> = ({ currentUser }) => {
       alert("生成失败，请检查网络或稍后重试。");
     } finally {
       setLoading(false);
+      setIsAIMinimized(false); // 重置最小化状态
     }
   };
 
@@ -163,7 +177,7 @@ const KitchenView: React.FC<KitchenViewProps> = ({ currentUser }) => {
       h.id === selectedHistoryRecord.id ? selectedHistoryRecord : h
     );
     setHistory(updatedHistory);
-    localStorage.setItem('kt_kitchen_history_v2', JSON.stringify(updatedHistory));
+    localStorage.setItem(STORAGE_KEYS.MEAL_PLANS, JSON.stringify(updatedHistory));
     setIsEditingHistory(false);
     alert('食谱修改已保存！');
   };
@@ -181,7 +195,7 @@ const KitchenView: React.FC<KitchenViewProps> = ({ currentUser }) => {
     const confirmed: WeeklyRecipeRecord = { ...currentRecord, status: 'CONFIRMED', createdAt: new Date().toISOString() };
     const newHistory = [confirmed, ...history];
     setHistory(newHistory);
-    localStorage.setItem('kt_kitchen_history_v2', JSON.stringify(newHistory));
+    localStorage.setItem(STORAGE_KEYS.MEAL_PLANS, JSON.stringify(newHistory));
     
     // 记录操作日志
     logOperation(
@@ -688,14 +702,14 @@ const KitchenView: React.FC<KitchenViewProps> = ({ currentUser }) => {
                      e.stopPropagation();
                      const updated = history.filter(h => h.id !== rec.id);
                      setHistory(updated);
-                     localStorage.setItem('kt_kitchen_history_v2', JSON.stringify(updated));
+                     localStorage.setItem(STORAGE_KEYS.MEAL_PLANS, JSON.stringify(updated));
                   }} className="text-slate-200 hover:text-rose-500 transition-all opacity-0 group-hover:opacity-100">
                     <Trash2 className="w-5 h-5" />
                   </button>
                 </div>
                 <h4 className="text-lg font-black text-slate-800 font-brand">{rec.weekRange || '周食谱存档'}</h4>
                 <div className="mt-3 flex items-center gap-2 text-slate-400 text-xs font-bold">
-                  <Calendar className="w-4 h-4" /> {new Date(rec.createdAt).toLocaleDateString()}
+                  <Calendar className="w-4 h-4" /> {new Date(rec.createdAt).toLocaleDateString('zh-CN')}
                 </div>
                 {rec.nutritionSummary && (
                   <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
@@ -1002,7 +1016,7 @@ const KitchenView: React.FC<KitchenViewProps> = ({ currentUser }) => {
                   </h3>
                   <p className="text-sm text-slate-500 flex items-center gap-2 mt-1">
                     <Calendar className="w-4 h-4" />
-                    {new Date(selectedHistoryRecord.createdAt).toLocaleDateString()} · {selectedHistoryRecord.headcount}人用餐
+                    {new Date(selectedHistoryRecord.createdAt).toLocaleDateString('zh-CN')} · {selectedHistoryRecord.headcount}人用餐
                   </p>
                 </div>
               </div>
@@ -1246,6 +1260,70 @@ const KitchenView: React.FC<KitchenViewProps> = ({ currentUser }) => {
           message={successMessage} 
           onClose={() => setShowSuccessToast(false)} 
         />
+      )}
+
+      {/* AI生成食谱进度窗口 - 完整窗口 */}
+      {loading && !isAIMinimized && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl">
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-3">
+                <div className="p-3 bg-amber-100 rounded-2xl">
+                  <Brain className="w-8 h-8 text-amber-600 animate-pulse" />
+                </div>
+                <div>
+                  <h3 className="font-black text-slate-800 text-lg">AI正在生成周食谱</h3>
+                  <p className="text-sm text-slate-500">{campusName} · {headcount}人用餐</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsAIMinimized(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl font-bold text-sm transition-colors"
+                title="最小化后可继续其他工作"
+              >
+                <ChevronDown className="w-4 h-4" />
+                隐藏
+              </button>
+            </div>
+            
+            <div className="space-y-4">
+              <div className="bg-gradient-to-r from-amber-50 to-orange-50 rounded-xl p-4">
+                <div className="flex items-center gap-3 mb-3">
+                  <Loader2 className="w-5 h-5 text-amber-600 animate-spin" />
+                  <span className="text-amber-800 font-bold">正在智能配餐...</span>
+                </div>
+                <div className="space-y-2 text-sm text-amber-700">
+                  <p>• 分析营养需求标准</p>
+                  <p>• 计算食材配比</p>
+                  <p>• 生成一周完整食谱</p>
+                </div>
+              </div>
+              
+              <p className="text-xs text-slate-400 text-center">
+                💡 点击"隐藏"可最小化窗口，继续操作其他功能
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* AI生成食谱最小化提示条 */}
+      {loading && isAIMinimized && (
+        <div 
+          className="fixed bottom-6 right-6 z-50 cursor-pointer"
+          onClick={() => setIsAIMinimized(false)}
+        >
+          <div className="bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-2xl px-5 py-3 shadow-lg flex items-center gap-3 hover:shadow-xl transition-shadow animate-pulse">
+            <Brain className="w-5 h-5" />
+            <div>
+              <p className="font-bold text-sm">AI生成食谱中...</p>
+              <p className="text-xs text-amber-100">
+                {campusName} · 点击查看进度
+              </p>
+            </div>
+            <Loader2 className="w-4 h-4 animate-spin ml-2" />
+          </div>
+        </div>
       )}
     </div>
   );

@@ -13,6 +13,7 @@ import { auditCreate, auditUpdate, auditDelete } from '../services/auditService'
 import { canEditSensitiveFields, getSensitiveFieldsList, filterEditableFields, SENSITIVE_FIELDS, getPermissionSummary } from '../services/fieldPermissionService';
 import ConfirmUploadModal, { UploadSuccessToast } from '../components/ConfirmUploadModal';
 import { EditHistoryButton } from '../components/EditHistoryPanel';
+import { ChineseDatePicker } from '../components/ChineseDatePicker';
 
 interface StaffViewProps {
   currentUser: User;
@@ -789,7 +790,7 @@ const StaffView: React.FC<StaffViewProps> = ({ currentUser }) => {
             </h2>
             
             <div className="space-y-4">
-              <input required type="date" name="date" className="w-full p-3 bg-slate-50 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 font-bold" />
+              <input required type="date" name="date" lang="zh-CN" className="w-full p-3 bg-slate-50 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 font-bold" />
               
               <select required name="dutyPerson" className="w-full p-3 bg-slate-50 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 font-bold">
                 <option value="">值班人员 *</option>
@@ -851,7 +852,7 @@ const StaffView: React.FC<StaffViewProps> = ({ currentUser }) => {
             
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
-                <input required type="date" name="date" defaultValue={new Date().toISOString().split('T')[0]} className="p-3 bg-slate-50 rounded-xl outline-none focus:ring-2 focus:ring-orange-500 font-bold" />
+                <input required type="date" name="date" lang="zh-CN" defaultValue={new Date().toISOString().split('T')[0]} className="p-3 bg-slate-50 rounded-xl outline-none focus:ring-2 focus:ring-orange-500 font-bold" />
                 <select required name="mealType" className="p-3 bg-slate-50 rounded-xl outline-none focus:ring-2 focus:ring-orange-500 font-bold">
                   <option value="breakfast">早餐</option>
                   <option value="lunch">午餐</option>
@@ -981,6 +982,7 @@ const StaffView: React.FC<StaffViewProps> = ({ currentUser }) => {
                   </label>
                   <input 
                     type="date" 
+                    lang="zh-CN"
                     name="hireDate" 
                     defaultValue={editingTeacher?.hireDate || new Date().toISOString().split('T')[0]} 
                     disabled={editingTeacher && !canEditSensitiveFields(currentUser.role)}

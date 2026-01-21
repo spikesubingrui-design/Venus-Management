@@ -25,8 +25,7 @@ import {
 } from 'lucide-react';
 import { User, UserRole } from '../types';
 import OperationLogsViewer from '../components/OperationLogsViewer';
-import { checkAliyunHealth, isAliyunConfigured, initializeFromAliyun, getSyncStatus } from '../services/aliyunOssService';
-import { supabase, isSupabaseConfigured } from '../services/supabaseClient';
+import { checkAliyunHealth, isAliyunConfigured, initializeFromAliyun, getSyncStatus, resetCloudStudents, deleteCloudData, uploadAllToAliyun } from '../services/aliyunOssService';
 
 interface SystemManagementViewProps {
   currentUser: User;
@@ -54,70 +53,26 @@ const SystemManagementView: React.FC<SystemManagementViewProps> = ({ currentUser
   const [syncProgress, setSyncProgress] = useState({ current: 0, total: 0, key: '' });
   const [syncResult, setSyncResult] = useState<{ success: boolean; message: string } | null>(null);
   const [cloudHealth, setCloudHealth] = useState<{ isHealthy: boolean; latency?: number } | null>(null);
-  const [supabaseConnected, setSupabaseConnected] = useState(false);
 
   useEffect(() => {
     loadData();
   }, []);
 
-  // 加载数据（优先云端）
+  // 加载数据（从本地存储，阿里云OSS负责同步）
   const loadData = async () => {
-    // 检查 Supabase 连接
-    if (isSupabaseConfigured) {
-      try {
-        const { error } = await supabase.from('users').select('id').limit(1);
-        if (!error) {
-          setSupabaseConnected(true);
-          console.log('✅ Supabase 云端连接成功');
-          
-          // 从云端加载授权手机号
-          const { data: cloudPhones } = await supabase
-            .from('authorized_phones')
-            .select('*')
-            .order('created_at', { ascending: false });
-          
-          if (cloudPhones && cloudPhones.length > 0) {
-            setAuthorizedPhones(cloudPhones);
-            // 同步到本地
-            localStorage.setItem('kt_authorized_phones', JSON.stringify(cloudPhones.map(p => p.phone)));
-          } else {
-            // 云端为空，从本地加载
-            const localPhones = JSON.parse(localStorage.getItem('kt_authorized_phones') || '[]');
-            setAuthorizedPhones(localPhones.map((p: string) => ({ phone: p })));
-          }
-          
-          // 从云端加载用户
-          const { data: cloudUsers } = await supabase
-            .from('users')
-            .select('*')
-            .order('created_at', { ascending: false });
-          
-          if (cloudUsers && cloudUsers.length > 0) {
-            setAllUsers(cloudUsers.map(u => ({
-              id: u.id,
-              name: u.name,
-              phone: u.phone,
-              role: u.role,
-              campus: u.campus,
-              avatar: u.avatar
-            })));
-          } else {
-            const localUsers = JSON.parse(localStorage.getItem('kt_all_users') || '[]');
-            setAllUsers(localUsers);
-          }
-        }
-      } catch (err) {
-        console.log('Supabase 连接失败，使用本地数据');
+    // 从本地存储加载数据
+    const phones = JSON.parse(localStorage.getItem('kt_authorized_phones') || '[]');
+    const users = JSON.parse(localStorage.getItem('kt_all_users') || '[]');
+    
+    // 处理手机号格式
+    if (phones.length > 0) {
+      if (typeof phones[0] === 'string') {
+        setAuthorizedPhones(phones.map((p: string) => ({ phone: p })));
+      } else {
+        setAuthorizedPhones(phones);
       }
     }
-    
-    // 如果云端未连接，使用本地数据
-    if (!supabaseConnected) {
-      const phones = JSON.parse(localStorage.getItem('kt_authorized_phones') || '[]');
-      const users = JSON.parse(localStorage.getItem('kt_all_users') || '[]');
-      setAuthorizedPhones(phones.map((p: string) => ({ phone: p })));
-      setAllUsers(users);
-    }
+    setAllUsers(users);
     
     // 检查阿里云健康状态
     if (isAliyunConfigured) {
@@ -165,30 +120,6 @@ const SystemManagementView: React.FC<SystemManagementViewProps> = ({ currentUser
       created_at: new Date().toISOString()
     };
     
-    // 云端添加
-    if (isSupabaseConfigured && supabaseConnected) {
-      try {
-        const { error } = await supabase.from('authorized_phones').insert({
-          phone: cleanPhone,
-          campus: newPhoneCampus,
-          role: newPhoneRole,
-          added_by: currentUser.id
-        });
-        
-        if (error) {
-          console.error('云端添加失败:', error);
-          if (error.code === '23505') {
-            alert('该手机号已在云端授权列表中');
-            return;
-          }
-        } else {
-          console.log('☁️ 云端授权手机号已添加:', cleanPhone);
-        }
-      } catch (err) {
-        console.error('云端操作异常:', err);
-      }
-    }
-    
     // 本地添加
     const updated = [...authorizedPhones, newAuthorizedPhone];
     setAuthorizedPhones(updated);
@@ -198,16 +129,6 @@ const SystemManagementView: React.FC<SystemManagementViewProps> = ({ currentUser
   };
 
   const handleDeletePhone = async (phone: string) => {
-    // 云端删除
-    if (isSupabaseConfigured && supabaseConnected) {
-      try {
-        await supabase.from('authorized_phones').delete().eq('phone', phone);
-        console.log('☁️ 云端授权手机号已删除:', phone);
-      } catch (err) {
-        console.error('云端删除失败:', err);
-      }
-    }
-    
     // 本地删除
     const updated = authorizedPhones.filter(p => p.phone !== phone);
     setAuthorizedPhones(updated);
@@ -215,16 +136,6 @@ const SystemManagementView: React.FC<SystemManagementViewProps> = ({ currentUser
   };
 
   const handleDeleteUser = async (userId: string) => {
-    // 云端删除
-    if (isSupabaseConfigured && supabaseConnected) {
-      try {
-        await supabase.from('users').delete().eq('id', userId);
-        console.log('☁️ 云端用户已删除:', userId);
-      } catch (err) {
-        console.error('云端删除用户失败:', err);
-      }
-    }
-    
     // 本地删除
     const updated = allUsers.filter(u => u.id !== userId);
     setAllUsers(updated);
@@ -271,20 +182,6 @@ const SystemManagementView: React.FC<SystemManagementViewProps> = ({ currentUser
         is_used: false,
         created_at: new Date().toISOString()
       };
-
-      // 云端添加
-      if (isSupabaseConfigured && supabaseConnected) {
-        try {
-          await supabase.from('authorized_phones').insert({
-            phone: cleanPhone,
-            campus: newAuthorizedPhone.campus,
-            role: 'TEACHER',
-            added_by: currentUser.id
-          });
-        } catch (err) {
-          console.error('云端添加失败:', cleanPhone, err);
-        }
-      }
 
       authorizedPhones.push(newAuthorizedPhone);
       existingPhones.add(cleanPhone);
@@ -579,7 +476,7 @@ const SystemManagementView: React.FC<SystemManagementViewProps> = ({ currentUser
                 </div>
 
                 {/* 手动同步按钮（备用） */}
-                <div className="mt-6 pt-6 border-t border-white/20">
+                <div className="mt-6 pt-6 border-t border-white/20 space-y-3">
                   <button
                     onClick={() => handleSync()}
                     disabled={isSyncing || !isAliyunConfigured}
@@ -588,6 +485,60 @@ const SystemManagementView: React.FC<SystemManagementViewProps> = ({ currentUser
                     <RefreshCw className={`w-5 h-5 text-white/70 ${isSyncing ? 'animate-spin' : ''}`} />
                     <span className="text-white/70 text-sm font-bold">
                       {isSyncing ? '同步中...' : '手动强制同步（一般无需使用）'}
+                    </span>
+                  </button>
+                  
+                  {/* 重置云端学生数据 */}
+                  <button
+                    onClick={async () => {
+                      if (!window.confirm('⚠️ 警告：这将删除云端所有学生数据，然后上传当前本地数据。\n\n确定要重置云端学生数据吗？')) return;
+                      setIsSyncing(true);
+                      try {
+                        const result = await resetCloudStudents();
+                        if (result.success) {
+                          setSyncResult({ success: true, message: `✅ 云端学生数据已重置: ${result.count} 人` });
+                        } else {
+                          setSyncResult({ success: false, message: '❌ 重置失败' });
+                        }
+                      } catch (err: any) {
+                        setSyncResult({ success: false, message: `❌ 错误: ${err.message}` });
+                      } finally {
+                        setIsSyncing(false);
+                      }
+                    }}
+                    disabled={isSyncing || !isAliyunConfigured}
+                    className="w-full flex items-center justify-center gap-3 p-4 bg-rose-500/30 hover:bg-rose-500/50 rounded-2xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <Trash2 className="w-5 h-5 text-rose-300" />
+                    <span className="text-rose-300 text-sm font-bold">
+                      🔄 重置云端学生数据（解决数据重复问题）
+                    </span>
+                  </button>
+                  
+                  {/* 上传本地数据到云端 */}
+                  <button
+                    onClick={async () => {
+                      if (!window.confirm('将本地所有数据上传到云端（会覆盖云端数据）。\n\n确定要上传吗？')) return;
+                      setIsSyncing(true);
+                      try {
+                        const result = await uploadAllToAliyun();
+                        if (result.success) {
+                          setSyncResult({ success: true, message: '✅ 本地数据已上传到云端' });
+                        } else {
+                          setSyncResult({ success: false, message: '❌ 上传失败' });
+                        }
+                      } catch (err: any) {
+                        setSyncResult({ success: false, message: `❌ 错误: ${err.message}` });
+                      } finally {
+                        setIsSyncing(false);
+                      }
+                    }}
+                    disabled={isSyncing || !isAliyunConfigured}
+                    className="w-full flex items-center justify-center gap-3 p-4 bg-emerald-500/30 hover:bg-emerald-500/50 rounded-2xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <CloudUpload className="w-5 h-5 text-emerald-300" />
+                    <span className="text-emerald-300 text-sm font-bold">
+                      📤 上传本地数据到云端
                     </span>
                   </button>
                 </div>

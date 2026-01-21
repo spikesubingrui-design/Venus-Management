@@ -47,6 +47,7 @@ const ObservationView: React.FC<ObservationViewProps> = ({ currentUser }) => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatingText, setGeneratingText] = useState('');
   const [selectedDraft, setSelectedDraft] = useState<ObservationDraft | null>(null);
+  const [isAIMinimized, setIsAIMinimized] = useState(false); // AI生成窗口最小化
   
   // 编辑状态
   const [editingObs, setEditingObs] = useState<ProfessionalObservation | null>(null);
@@ -161,7 +162,7 @@ const ObservationView: React.FC<ObservationViewProps> = ({ currentUser }) => {
   }, []);
 
   const loadData = () => {
-    const savedStudents = localStorage.getItem('kt_students_local');
+    const savedStudents = localStorage.getItem('kt_students');
     if (savedStudents) setStudents(JSON.parse(savedStudents));
     
     setDrafts(getDrafts());
@@ -243,6 +244,7 @@ const ObservationView: React.FC<ObservationViewProps> = ({ currentUser }) => {
     } finally {
       setIsGenerating(false);
       setSelectedDraft(null);
+      setIsAIMinimized(false); // 重置最小化状态
     }
   };
 
@@ -680,22 +682,51 @@ const ObservationView: React.FC<ObservationViewProps> = ({ currentUser }) => {
                 ))
               )}
 
-              {/* AI生成中的预览 */}
-              {isGenerating && generatingText && (
+              {/* AI生成中的预览 - 完整窗口 */}
+              {isGenerating && generatingText && !isAIMinimized && (
                 <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
                   <div className="bg-white rounded-2xl p-6 max-w-2xl w-full max-h-[80vh] overflow-y-auto">
-                    <div className="flex items-center gap-3 mb-4">
-                      <div className="p-2 bg-purple-100 rounded-xl">
-                        <Brain className="w-6 h-6 text-purple-600 animate-pulse" />
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 bg-purple-100 rounded-xl">
+                          <Brain className="w-6 h-6 text-purple-600 animate-pulse" />
+                        </div>
+                        <div>
+                          <h3 className="font-bold text-slate-800">AI正在生成专业观察记录...</h3>
+                          <p className="text-xs text-slate-500">基于《3-6岁儿童学习与发展指南》分析</p>
+                        </div>
                       </div>
-                      <div>
-                        <h3 className="font-bold text-slate-800">AI正在生成专业观察记录...</h3>
-                        <p className="text-xs text-slate-500">基于《3-6岁儿童学习与发展指南》分析</p>
-                      </div>
+                      <button
+                        onClick={() => setIsAIMinimized(true)}
+                        className="flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl font-bold text-sm transition-colors"
+                        title="最小化后可继续其他工作"
+                      >
+                        <ChevronDown className="w-4 h-4" />
+                        隐藏
+                      </button>
                     </div>
                     <div className="bg-slate-50 rounded-xl p-4 text-sm text-slate-700 whitespace-pre-wrap font-mono">
                       {generatingText}
                     </div>
+                  </div>
+                </div>
+              )}
+
+              {/* AI生成中的最小化提示条 */}
+              {isGenerating && isAIMinimized && (
+                <div 
+                  className="fixed bottom-6 right-6 z-50 cursor-pointer"
+                  onClick={() => setIsAIMinimized(false)}
+                >
+                  <div className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-2xl px-5 py-3 shadow-lg flex items-center gap-3 hover:shadow-xl transition-shadow animate-pulse">
+                    <Brain className="w-5 h-5" />
+                    <div>
+                      <p className="font-bold text-sm">AI润色进行中...</p>
+                      <p className="text-xs text-purple-200">
+                        {selectedDraft?.studentName} · 点击查看进度
+                      </p>
+                    </div>
+                    <Loader2 className="w-4 h-4 animate-spin ml-2" />
                   </div>
                 </div>
               )}
@@ -731,7 +762,7 @@ const ObservationView: React.FC<ObservationViewProps> = ({ currentUser }) => {
                         <div>
                           <p className="font-bold text-slate-800">{obs.title}</p>
                           <p className="text-xs text-slate-500">
-                            {obs.studentName} · {obs.class} · {new Date(obs.createdAt).toLocaleDateString()}
+                            {obs.studentName} · {obs.class} · {new Date(obs.createdAt).toLocaleDateString('zh-CN')}
                           </p>
                         </div>
                       </div>

@@ -21,7 +21,7 @@ export enum AppView {
 
 // 园区类型：普惠园、高端园、九幼、十七幼
 export type CampusGrade = 'PHUI' | 'HIGH_END' | 'JIU_YOU' | 'SHIQI_YOU';
-export type UserRole = 'SUPER_ADMIN' | 'ADMIN' | 'TEACHER' | 'KITCHEN' | 'PARENT';
+export type UserRole = 'SUPER_ADMIN' | 'ADMIN' | 'TEACHER' | 'KITCHEN' | 'PARENT' | 'FINANCE';
 
 // 园区配置
 export const CAMPUS_CONFIG: Record<CampusGrade, { name: string; features: string[] }> = {
@@ -960,4 +960,61 @@ export interface DashboardSnapshot {
     critical: number;
     warning: number;
   };
+}
+
+// ==================== 幼儿发展评价 ====================
+
+// 评价项目
+export interface EvaluationItem {
+  id: string;
+  name: string;                    // 评价项目名称
+  description?: string;            // 项目描述
+  levels: EvaluationLevel[];       // 评价等级选项
+}
+
+// 评价等级
+export interface EvaluationLevel {
+  value: number;                   // 等级值（1-5）
+  label: string;                   // 等级名称（如：优秀、良好、一般等）
+  color: string;                   // 显示颜色
+}
+
+// 评价模板
+export interface EvaluationTemplate {
+  id: string;
+  name: string;                    // 模板名称（如：大班语言能力评价）
+  targetGrade: string;             // 适用年级（小班、中班、大班）
+  domain: string;                  // 发展领域（语言、艺术、健康、科学、社会）
+  semester: string;                // 学期（上学期、下学期）
+  items: EvaluationItem[];         // 评价项目列表
+  createdAt: string;
+  updatedAt: string;
+}
+
+// 学生评价记录
+export interface StudentEvaluation {
+  id: string;
+  studentId: string;
+  studentName: string;
+  studentClass: string;
+  templateId: string;
+  templateName: string;
+  domain: string;
+  semester: string;
+  schoolYear: string;              // 学年（如：2025-2026）
+  scores: EvaluationScore[];       // 各项评分
+  totalScore?: number;             // 总分
+  averageScore?: number;           // 平均分
+  teacherComment?: string;         // 教师评语
+  evaluatedBy: string;             // 评价教师
+  evaluatedAt: string;             // 评价时间
+  status: 'draft' | 'completed';   // 状态
+}
+
+// 单项评分
+export interface EvaluationScore {
+  itemId: string;
+  itemName: string;
+  score: number;                   // 得分（1-5）
+  notes?: string;                  // 备注
 }
