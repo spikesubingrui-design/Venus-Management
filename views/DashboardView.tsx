@@ -55,12 +55,17 @@ const DashboardView: React.FC<DashboardViewProps> = ({ user, onNavigate }) => {
       const parsedT = JSON.parse(savedTeachers);
       const seenT = new Map();
       const dedupedT = parsedT.filter((t: any) => {
-        const key = t.name && t.phone ? `${t.name}_${t.phone}` : t.id;
-        if (seenT.has(key)) return false;
+        const key = t.name 
+          ? (t.phone ? `${t.name}_${t.phone}` : t.assignedClass ? `${t.name}_${t.assignedClass}` : t.name)
+          : t.id;
+        if (!key || seenT.has(key)) return false;
         seenT.set(key, true);
         return true;
       });
       setTeachers(dedupedT);
+      if (dedupedT.length !== parsedT.length) {
+        localStorage.setItem('kt_teachers', JSON.stringify(dedupedT));
+      }
     }
     
     const savedAttendance = localStorage.getItem(`kt_attendance_${today}`);
