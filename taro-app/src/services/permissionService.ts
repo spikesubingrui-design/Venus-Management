@@ -50,18 +50,40 @@ export const getCurrentUser = (): UserInfo | null => {
     const staffList = Taro.getStorageSync('kt_staff') || []
     const staffInfo = staffList.find((s: any) => s.phone === user.phone)
     
-    if (staffInfo) {
+    // 同时从授权名单中获取班级（网页端编辑授权信息时班级存在这里）
+    const authorizedPhones: any[] = Taro.getStorageSync('kt_authorized_phones') || []
+    const authInfo = authorizedPhones.find((p: any) => 
+      typeof p === 'object' && p.phone === user.phone
+    )
+    
+    // 合并班级来源：kt_staff.assignedClasses + kt_authorized_phones.assignedClass
+    let mergedClasses: string[] = []
+    if (staffInfo?.assignedClasses?.length) {
+      mergedClasses = [...staffInfo.assignedClasses]
+    }
+    if (authInfo?.assignedClass && !mergedClasses.includes(authInfo.assignedClass)) {
+      mergedClasses.push(authInfo.assignedClass)
+    }
+    // 兼容 kt_staff 中的 class 字段
+    if (staffInfo?.class && !mergedClasses.includes(staffInfo.class)) {
+      mergedClasses.push(staffInfo.class)
+    }
+    
+    const sourceInfo = staffInfo || authInfo
+    if (sourceInfo) {
+      const currentClasses = user.assignedClasses || []
       const needsUpdate = 
-        JSON.stringify(user.assignedClasses || []) !== JSON.stringify(staffInfo.assignedClasses || []) ||
-        user.role !== staffInfo.role ||
-        user.name !== staffInfo.name
+        JSON.stringify(currentClasses.sort()) !== JSON.stringify(mergedClasses.sort()) ||
+        user.role !== (staffInfo?.role || authInfo?.role || user.role) ||
+        user.name !== (staffInfo?.name || authInfo?.name || user.name)
       
       if (needsUpdate) {
         const updatedUser = {
           ...user,
-          name: staffInfo.name || user.name,
-          role: staffInfo.role || user.role,
-          assignedClasses: staffInfo.assignedClasses || user.assignedClasses || [],
+          name: staffInfo?.name || authInfo?.name || user.name,
+          role: staffInfo?.role || authInfo?.role || user.role,
+          campus: staffInfo?.campus || authInfo?.campus || user.campus,
+          assignedClasses: mergedClasses.length > 0 ? mergedClasses : currentClasses,
         }
         Taro.setStorageSync('kt_current_user', updatedUser)
         console.log('[Permission] 用户权限已自动更新:', updatedUser.assignedClasses)
