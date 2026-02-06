@@ -318,43 +318,48 @@ export function syncToAliyun(storageKey: string): void {
  * 数据去重函数
  */
 function deduplicateData<T extends { id: string; name?: string }>(data: T[]): T[] {
-  // 第一轮：按 ID 去重
-  const seenId = new Map<string, T>();
-  for (const item of data) {
-    if (item.id && !seenId.has(item.id)) {
-      seenId.set(item.id, item);
-    }
-  }
-  const afterIdDedup = Array.from(seenId.values());
+  // 同时用两种键去重：组合键（name+class等）和 ID
+  const seenComposite = new Map<string, T>();
+  const seenId = new Set<string>();
 
-  // 第二轮：按 name 组合键去重（同名+同班/同手机号 视为同一人）
-  const seenKey = new Map<string, T>();
-  for (const item of afterIdDedup) {
+  for (const item of data) {
     const r = item as any;
-    let dedupKey: string;
+    
+    // 构造组合键：优先 name+phone > name+class > name+assignedClass > name+className > name
+    let compositeKey = '';
     if (r.name) {
       if (r.phone) {
-        dedupKey = `${r.name}_${r.phone}`;
+        compositeKey = `${r.name}_${r.phone}`;
       } else if (r.class) {
-        dedupKey = `${r.name}_${r.class}`;
+        compositeKey = `${r.name}_${r.class}`;
       } else if (r.assignedClass) {
-        dedupKey = `${r.name}_${r.assignedClass}`;
+        compositeKey = `${r.name}_${r.assignedClass}`;
       } else if (r.className) {
-        dedupKey = `${r.name}_${r.className}`;
+        compositeKey = `${r.name}_${r.className}`;
       } else {
-        dedupKey = r.name;
+        compositeKey = `__name__${r.name}`;
       }
-    } else {
-      dedupKey = r.id;
     }
-    if (dedupKey && !seenKey.has(dedupKey)) {
-      seenKey.set(dedupKey, item);
+
+    // 检查是否重复：组合键和 ID 任一重复都跳过
+    const isDupByComposite = compositeKey && seenComposite.has(compositeKey);
+    const isDupById = r.id && seenId.has(r.id);
+
+    if (isDupByComposite || isDupById) continue;
+
+    // 都没见过，加入
+    if (compositeKey) seenComposite.set(compositeKey, item);
+    if (r.id) seenId.add(r.id);
+    
+    // 没有组合键也没有 id 的记录也保留（兜底）
+    if (!compositeKey && !r.id) {
+      seenComposite.set(`__idx_${seenComposite.size}`, item);
     }
   }
 
-  const result = Array.from(seenKey.values());
+  const result = Array.from(seenComposite.values());
   if (result.length !== data.length) {
-    console.log(`[AliyunOSS] 🧹 去重: ${data.length} → ${afterIdDedup.length}(ID) → ${result.length}(组合键)`);
+    console.log(`[AliyunOSS] 🧹 去重: ${data.length} → ${result.length}`);
   }
   
   return result;
