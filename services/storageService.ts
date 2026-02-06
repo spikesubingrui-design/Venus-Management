@@ -71,6 +71,12 @@ export const STORAGE_KEYS = {
   ADMIN_DUTY: 'kt_admin_duty',
   MEAL_ACCOMPANY: 'kt_meal_accompany',
   
+  // 发展评价与观察记录
+  STUDENT_EVALUATIONS: 'kt_student_evaluations',
+  OBSERVATIONS: 'kt_observations',
+  OBSERVATION_DRAFTS: 'kt_observation_drafts',
+  PROFESSIONAL_OBSERVATIONS: 'kt_professional_observations',
+  
   // 操作日志
   OPERATION_LOGS: 'kt_operation_logs',
   
