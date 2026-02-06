@@ -45,9 +45,13 @@ const DataCockpitView: React.FC<DataCockpitViewProps> = ({ currentUser, onNaviga
   const dedupByName = (arr: any[]) => {
     const seen = new Map();
     return arr.filter((item: any) => {
-      // 优先用 name+phone，其次 name+class，最后 id
+      // 优先用 name+phone，其次 name+class/className，最后 id
       const key = item.name 
-        ? (item.phone ? `${item.name}_${item.phone}` : item.class ? `${item.name}_${item.class}` : item.assignedClass ? `${item.name}_${item.assignedClass}` : item.name)
+        ? (item.phone ? `${item.name}_${item.phone}` 
+          : item.class ? `${item.name}_${item.class}` 
+          : item.assignedClass ? `${item.name}_${item.assignedClass}` 
+          : item.className ? `${item.name}_${item.className}`
+          : item.name)
         : item.id;
       if (!key || seen.has(key)) return false;
       seen.set(key, true);
