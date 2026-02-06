@@ -1,0 +1,272 @@
+.allergies-page {
+  min-height: 100vh;
+  background: linear-gradient(180deg, #f8faf5 0%, #f0f4e8 100%);
+  padding-bottom: calc(120rpx + env(safe-area-inset-bottom));
+}
+
+// 顶部统计
+.stats-header {
+  display: flex;
+  justify-content: space-between;
+  padding: 24rpx 32rpx;
+  gap: 20rpx;
+}
+
+.stat-card {
+  flex: 1;
+  background: #fff;
+  border-radius: 16rpx;
+  padding: 24rpx 16rpx;
+  text-align: center;
+  box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.05);
+  
+  .stat-number {
+    display: block;
+    font-size: 40rpx;
+    font-weight: 700;
+    margin-bottom: 8rpx;
+  }
+  
+  .stat-label {
+    font-size: 24rpx;
+    color: #666;
+  }
+  
+  &.total .stat-number {
+    color: #4a5d3a;
+  }
+  
+  &.allergic .stat-number {
+    color: #f57c00;
+  }
+  
+  &.rate .stat-number {
+    color: #1976d2;
+  }
+}
+
+// 常见过敏原
+.allergen-section {
+  background: #fff;
+  margin: 0 24rpx 24rpx;
+  border-radius: 16rpx;
+  padding: 24rpx;
+  box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.05);
+  
+  .section-title {
+    font-size: 28rpx;
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 16rpx;
+    display: block;
+  }
+}
+
+.allergen-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16rpx;
+}
+
+.allergen-tag {
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+  background: linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%);
+  padding: 12rpx 20rpx;
+  border-radius: 24rpx;
+  border: 2rpx solid #ffb74d;
+  
+  .allergen-name {
+    font-size: 26rpx;
+    color: #e65100;
+    font-weight: 500;
+  }
+  
+  .allergen-count {
+    font-size: 22rpx;
+    color: #fff;
+    background: #f57c00;
+    padding: 4rpx 12rpx;
+    border-radius: 16rpx;
+  }
+}
+
+// 搜索和筛选
+.filter-bar {
+  padding: 0 24rpx;
+  margin-bottom: 16rpx;
+}
+
+.search-box {
+  display: flex;
+  align-items: center;
+  background: #fff;
+  border-radius: 40rpx;
+  padding: 16rpx 24rpx;
+  margin-bottom: 16rpx;
+  box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.05);
+  
+  .search-icon {
+    font-size: 32rpx;
+    margin-right: 12rpx;
+  }
+  
+  .search-input {
+    flex: 1;
+    font-size: 28rpx;
+  }
+  
+  .clear-btn {
+    font-size: 28rpx;
+    color: #999;
+    padding: 8rpx;
+  }
+}
+
+.class-tabs {
+  white-space: nowrap;
+  
+  .class-tab {
+    display: inline-block;
+    padding: 12rpx 28rpx;
+    margin-right: 16rpx;
+    background: #fff;
+    border-radius: 24rpx;
+    font-size: 26rpx;
+    color: #666;
+    
+    &.active {
+      background: #4a5d3a;
+      color: #fff;
+    }
+  }
+}
+
+// 学生列表
+.student-list {
+  height: calc(100vh - 500rpx);
+  padding: 0 24rpx;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 80rpx 0;
+  
+  .empty-icon {
+    font-size: 80rpx;
+    display: block;
+    margin-bottom: 24rpx;
+  }
+  
+  .empty-text {
+    font-size: 28rpx;
+    color: #999;
+  }
+}
+
+.class-group {
+  margin-bottom: 24rpx;
+}
+
+.class-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16rpx 0;
+  
+  .class-name {
+    font-size: 28rpx;
+    font-weight: 600;
+    color: #4a5d3a;
+  }
+  
+  .class-count {
+    font-size: 24rpx;
+    color: #999;
+  }
+}
+
+.student-card {
+  background: #fff;
+  border-radius: 16rpx;
+  padding: 24rpx;
+  margin-bottom: 16rpx;
+  box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.05);
+  border-left: 6rpx solid #f57c00;
+}
+
+.student-info {
+  margin-bottom: 16rpx;
+  
+  .student-name {
+    font-size: 32rpx;
+    font-weight: 600;
+    color: #333;
+  }
+}
+
+.allergy-info {
+  .allergy-row,
+  .dietary-row {
+    display: flex;
+    align-items: flex-start;
+    margin-bottom: 12rpx;
+    
+    &:last-child {
+      margin-bottom: 0;
+    }
+  }
+  
+  .allergy-label,
+  .dietary-label {
+    font-size: 26rpx;
+    color: #666;
+    margin-right: 12rpx;
+    white-space: nowrap;
+  }
+  
+  .allergy-items {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12rpx;
+  }
+  
+  .allergy-item {
+    font-size: 26rpx;
+    color: #d32f2f;
+    background: #ffebee;
+    padding: 6rpx 16rpx;
+    border-radius: 16rpx;
+    font-weight: 500;
+  }
+  
+  .dietary-text {
+    font-size: 26rpx;
+    color: #1976d2;
+  }
+}
+
+// 厨房提醒
+.kitchen-reminder {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12rpx;
+  background: linear-gradient(135deg, #4a5d3a 0%, #5d7548 100%);
+  padding: 24rpx 32rpx;
+  padding-bottom: calc(24rpx + env(safe-area-inset-bottom));
+  
+  .reminder-icon {
+    font-size: 40rpx;
+  }
+  
+  .reminder-text {
+    font-size: 26rpx;
+    color: #fff;
+  }
+}
