@@ -42,31 +42,42 @@ const DataCockpitView: React.FC<DataCockpitViewProps> = ({ currentUser, onNaviga
   }, []);
 
   // 通用去重函数：按 name 组合键去重
-  const dedupByName = (arr: any[]) => {
+  // 学生去重：和幼儿档案保持完全一致的逻辑
+  const dedupStudents = (arr: any[]) => {
     const seen = new Map();
-    return arr.filter((item: any) => {
-      // 优先用 name+phone，其次 name+class/className，最后 id
-      const key = item.name 
-        ? (item.phone ? `${item.name}_${item.phone}` 
-          : item.class ? `${item.name}_${item.class}` 
-          : item.assignedClass ? `${item.name}_${item.assignedClass}` 
-          : item.className ? `${item.name}_${item.className}`
-          : item.name)
-        : item.id;
-      if (!key || seen.has(key)) return false;
-      seen.set(key, true);
-      return true;
-    });
+    for (const s of arr) {
+      const key = s.name && s.class ? `${s.name}_${s.class}` : s.id;
+      if (key && !seen.has(key)) {
+        seen.set(key, s);
+      }
+    }
+    return Array.from(seen.values());
+  };
+
+  // 教师去重：name+phone 优先，其次 name+assignedClass，最后 id
+  const dedupTeachers = (arr: any[]) => {
+    const seen = new Map();
+    for (const t of arr) {
+      const key = t.name 
+        ? (t.phone ? `${t.name}_${t.phone}` 
+          : t.assignedClass ? `${t.name}_${t.assignedClass}` 
+          : t.name)
+        : t.id;
+      if (key && !seen.has(key)) {
+        seen.set(key, t);
+      }
+    }
+    return Array.from(seen.values());
   };
 
   const loadAllData = () => {
     setIsLoading(true);
     
-    // 加载学生（带去重）
+    // 加载学生（带去重，逻辑与幼儿档案完全一致）
     const savedStudents = localStorage.getItem('kt_students');
     if (savedStudents) {
       const raw = JSON.parse(savedStudents);
-      const deduped = dedupByName(raw);
+      const deduped = dedupStudents(raw);
       setStudents(deduped);
       if (deduped.length !== raw.length) {
         localStorage.setItem('kt_students', JSON.stringify(deduped));
@@ -78,7 +89,7 @@ const DataCockpitView: React.FC<DataCockpitViewProps> = ({ currentUser, onNaviga
     const savedTeachers = localStorage.getItem('kt_teachers');
     if (savedTeachers) {
       const raw = JSON.parse(savedTeachers);
-      const deduped = dedupByName(raw);
+      const deduped = dedupTeachers(raw);
       setTeachers(deduped);
       if (deduped.length !== raw.length) {
         localStorage.setItem('kt_teachers', JSON.stringify(deduped));
