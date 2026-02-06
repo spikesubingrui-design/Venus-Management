@@ -41,12 +41,15 @@ const DataCockpitView: React.FC<DataCockpitViewProps> = ({ currentUser, onNaviga
     return () => clearInterval(interval);
   }, []);
 
-  // 去重函数
-  const dedup = (arr: any[]) => {
+  // 通用去重函数：按 name 组合键去重
+  const dedupByName = (arr: any[]) => {
     const seen = new Map();
     return arr.filter((item: any) => {
-      const key = item.name && item.class ? `${item.name}_${item.class}` : item.id;
-      if (seen.has(key)) return false;
+      // 优先用 name+phone，其次 name+class，最后 id
+      const key = item.name 
+        ? (item.phone ? `${item.name}_${item.phone}` : item.class ? `${item.name}_${item.class}` : item.assignedClass ? `${item.name}_${item.assignedClass}` : item.name)
+        : item.id;
+      if (!key || seen.has(key)) return false;
       seen.set(key, true);
       return true;
     });
@@ -57,11 +60,27 @@ const DataCockpitView: React.FC<DataCockpitViewProps> = ({ currentUser, onNaviga
     
     // 加载学生（带去重）
     const savedStudents = localStorage.getItem('kt_students');
-    if (savedStudents) setStudents(dedup(JSON.parse(savedStudents)));
+    if (savedStudents) {
+      const raw = JSON.parse(savedStudents);
+      const deduped = dedupByName(raw);
+      setStudents(deduped);
+      if (deduped.length !== raw.length) {
+        localStorage.setItem('kt_students', JSON.stringify(deduped));
+        console.log(`[DataCockpit] 学生去重: ${raw.length} → ${deduped.length}`);
+      }
+    }
     
     // 加载教师（带去重）
     const savedTeachers = localStorage.getItem('kt_teachers');
-    if (savedTeachers) setTeachers(dedup(JSON.parse(savedTeachers)));
+    if (savedTeachers) {
+      const raw = JSON.parse(savedTeachers);
+      const deduped = dedupByName(raw);
+      setTeachers(deduped);
+      if (deduped.length !== raw.length) {
+        localStorage.setItem('kt_teachers', JSON.stringify(deduped));
+        console.log(`[DataCockpit] 教职工去重: ${raw.length} → ${deduped.length}`);
+      }
+    }
     
     // 加载退费记录
     setRefunds(getRefundRecords({}));
