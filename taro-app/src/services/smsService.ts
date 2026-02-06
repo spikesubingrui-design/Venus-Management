@@ -25,8 +25,8 @@ const SMS_CONFIG = {
 // 以下代码无需修改
 // ============================================
 
-// 验证码本地存储（开发模式）
-const codeStore: Map<string, { code: string; expiresAt: number; sentAt: number }> = new Map()
+// 验证码本地存储（开发模式 + HMAC令牌）
+const codeStore: Map<string, { code: string; expiresAt: number; sentAt: number; verifyToken?: string }> = new Map()
 
 /**
  * 发送验证码
@@ -82,8 +82,13 @@ export async function sendVerificationCode(phone: string): Promise<{
           : response.data
 
         if (result && result.success) {
-          // 本地也存储，用于验证（备用）
-          codeStore.set(phone, { code: '', expiresAt, sentAt: now })
+          // 本地存储令牌信息（用于跨实例无状态验证）
+          codeStore.set(phone, { 
+            code: '', 
+            expiresAt: result.expiresAt || expiresAt, 
+            sentAt: now,
+            verifyToken: result.verifyToken || '',
+          })
           return { success: true, message: result.message || '验证码已发送到您的手机' }
         } else {
           return { success: false, message: (result && result.message) || '发送失败，请重试' }
@@ -143,20 +148,29 @@ export async function verifyCode(phone: string, inputCode: string): Promise<{
     return { success: false, message: '验证码格式错误' }
   }
 
-  // 生产模式：调用云函数验证
+  // 生产模式：调用云函数验证（携带 HMAC 令牌用于无状态验证）
   if (USE_REAL_SMS && SMS_CONFIG.functionUrl) {
     try {
+      // 取出之前存储的令牌信息
+      const stored = codeStore.get(phone)
+      const requestData: any = {
+        action: 'verify',
+        phone,
+        code: inputCode,
+      }
+      // 附带 HMAC 令牌（解决云函数跨实例内存丢失问题）
+      if (stored?.verifyToken) {
+        requestData.verifyToken = stored.verifyToken
+        requestData.expiresAt = stored.expiresAt
+      }
+
       const response = await Taro.request({
         url: SMS_CONFIG.functionUrl,
         method: 'POST',
         header: {
           'Content-Type': 'application/json',
         },
-        data: {
-          action: 'verify',
-          phone,
-          code: inputCode,
-        },
+        data: requestData,
         timeout: 10000,
       })
 
@@ -164,6 +178,9 @@ export async function verifyCode(phone: string, inputCode: string): Promise<{
         const result = typeof response.data === 'string'
           ? JSON.parse(response.data)
           : response.data
+        if (result?.success) {
+          codeStore.delete(phone) // 验证成功，清除本地存储
+        }
         return { 
           success: result?.success ?? false, 
           message: result?.message || (result?.success ? '验证成功' : '验证失败')
