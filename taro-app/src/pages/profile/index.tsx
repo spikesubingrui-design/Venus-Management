@@ -47,6 +47,8 @@ export default function Profile() {
   const [authorizedPhones, setAuthorizedPhones] = useState<any[]>([])
   const [newPhone, setNewPhone] = useState('')
   const [phoneSearchQuery, setPhoneSearchQuery] = useState('')
+  const [editingPhone, setEditingPhone] = useState<string | null>(null)
+  const [editForm, setEditForm] = useState<any>({})
 
   useEffect(() => {
     loadUser()
@@ -197,6 +199,44 @@ export default function Profile() {
         }
       }
     })
+  }
+
+  // 开始编辑授权信息
+  const handleStartEditPhone = (p: any) => {
+    const phone = getPhone(p)
+    setEditingPhone(phone)
+    setEditForm(typeof p === 'string' ? { phone: p } : { ...p })
+  }
+
+  // 保存编辑
+  const handleSaveEditPhone = () => {
+    if (!editingPhone) return
+    const updated = authorizedPhones.map((p: any) => {
+      if (getPhone(p) === editingPhone) {
+        return { ...editForm }
+      }
+      return p
+    })
+    Taro.setStorageSync('kt_authorized_phones', updated)
+    setAuthorizedPhones(updated)
+    setEditingPhone(null)
+    setEditForm({})
+
+    // 同步到云端
+    if (isAliyunConfigured) {
+      uploadAuthorizedPhones().then(result => {
+        if (result.success) {
+          console.log('[Profile] 授权信息编辑已同步到云端')
+        }
+      })
+    }
+    Taro.showToast({ title: '已保存', icon: 'success' })
+  }
+
+  // 取消编辑
+  const handleCancelEditPhone = () => {
+    setEditingPhone(null)
+    setEditForm({})
   }
 
   const loadLocalDataCount = () => {
@@ -544,6 +584,44 @@ export default function Profile() {
                       const position = getPosition(p)
                       const cls = getClass(p)
                       const gender = getGender(p)
+                      const isEditing = editingPhone === phone
+
+                      if (isEditing) {
+                        return (
+                          <View key={phone} className='phone-item editing'>
+                            <View className='phone-edit-form'>
+                              <View className='phone-edit-row'>
+                                <Text className='phone-edit-label'>姓名</Text>
+                                <Input className='phone-edit-input' value={editForm.name || ''} onInput={e => setEditForm({...editForm, name: e.detail.value})} placeholder='姓名' />
+                              </View>
+                              <View className='phone-edit-row'>
+                                <Text className='phone-edit-label'>性别</Text>
+                                <View className='phone-edit-radio-group'>
+                                  <Text className={`phone-edit-radio ${editForm.gender === '女' ? 'active' : ''}`} onClick={() => setEditForm({...editForm, gender: '女'})}>女</Text>
+                                  <Text className={`phone-edit-radio ${editForm.gender === '男' ? 'active' : ''}`} onClick={() => setEditForm({...editForm, gender: '男'})}>男</Text>
+                                </View>
+                              </View>
+                              <View className='phone-edit-row'>
+                                <Text className='phone-edit-label'>园区</Text>
+                                <Input className='phone-edit-input' value={editForm.campus || ''} onInput={e => setEditForm({...editForm, campus: e.detail.value})} placeholder='园区' />
+                              </View>
+                              <View className='phone-edit-row'>
+                                <Text className='phone-edit-label'>职务</Text>
+                                <Input className='phone-edit-input' value={editForm.position || ''} onInput={e => setEditForm({...editForm, position: e.detail.value})} placeholder='职务' />
+                              </View>
+                              <View className='phone-edit-row'>
+                                <Text className='phone-edit-label'>班级</Text>
+                                <Input className='phone-edit-input' value={editForm.assignedClass || ''} onInput={e => setEditForm({...editForm, assignedClass: e.detail.value})} placeholder='班级' />
+                              </View>
+                              <View className='phone-edit-actions'>
+                                <Text className='phone-edit-save' onClick={handleSaveEditPhone}>✓ 保存</Text>
+                                <Text className='phone-edit-cancel' onClick={handleCancelEditPhone}>✕ 取消</Text>
+                              </View>
+                            </View>
+                          </View>
+                        )
+                      }
+
                       return (
                         <View key={phone} className='phone-item'>
                           <View className='phone-info'>
@@ -558,7 +636,10 @@ export default function Profile() {
                               {cls && <Text className='phone-tag cls'>{cls}</Text>}
                             </View>
                           </View>
-                          <Text className='phone-delete' onClick={() => handleRemovePhone(phone)}>删除</Text>
+                          <View className='phone-actions'>
+                            <Text className='phone-edit' onClick={() => handleStartEditPhone(p)}>编辑</Text>
+                            <Text className='phone-delete' onClick={() => handleRemovePhone(phone)}>删除</Text>
+                          </View>
                         </View>
                       )
                     })
