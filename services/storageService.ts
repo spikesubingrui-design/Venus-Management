@@ -237,13 +237,16 @@ const LOCAL_ONLY_KEYS = new Set([
  */
 export function saveAndSync(key: string, data: any): void {
   try {
-    // 对数组数据自动去重（按 name+phone / name+class / id 去重）
+    // 对数组数据自动去重（按 name 组合键去重）
     let finalData = data;
     if (Array.isArray(data) && data.length > 0 && typeof data[0] === 'object' && data[0] !== null) {
       const seen = new Map();
       finalData = data.filter((item: any) => {
-        const dedupKey = (item.name && item.phone) ? `${item.name}_${item.phone}` 
-          : (item.name && item.class) ? `${item.name}_${item.class}`
+        const dedupKey = item.name 
+          ? (item.phone ? `${item.name}_${item.phone}` 
+            : item.class ? `${item.name}_${item.class}` 
+            : item.assignedClass ? `${item.name}_${item.assignedClass}` 
+            : item.name)
           : item.id;
         if (!dedupKey || seen.has(dedupKey)) return false;
         seen.set(dedupKey, true);
