@@ -136,12 +136,14 @@ const StaffView: React.FC<StaffViewProps> = ({ currentUser }) => {
     return new Date(today.setDate(diff)).toISOString().split('T')[0];
   });
 
-  // 去重函数：按 name+phone 或 id 去重
+  // 去重函数：按 name 组合键去重
   const dedupTeachers = (arr: Teacher[]): Teacher[] => {
     const seen = new Map();
     return arr.filter((t: any) => {
-      const key = t.name && t.phone ? `${t.name}_${t.phone}` : t.id;
-      if (seen.has(key)) return false;
+      const key = t.name 
+        ? (t.phone ? `${t.name}_${t.phone}` : t.assignedClass ? `${t.name}_${t.assignedClass}` : t.name)
+        : t.id;
+      if (!key || seen.has(key)) return false;
       seen.set(key, true);
       return true;
     });
