@@ -439,7 +439,19 @@ export async function initializeFromAliyun(
   // 网页版视图使用 kt_teachers（Web格式），OSS/小程序使用 kt_staff
   // 下载云端数据后，自动转换并同步到 kt_teachers，确保网页视图显示正确
   try {
-    const ossStaff = JSON.parse(localStorage.getItem(STORAGE_KEYS.STAFF) || '[]');
+    const rawOssStaff = JSON.parse(localStorage.getItem(STORAGE_KEYS.STAFF) || '[]');
+    // 对 kt_staff 先去重（按 name+phone 或 id）
+    const staffSeen = new Map();
+    const ossStaff = rawOssStaff.filter((s: any) => {
+      const key = s.name && s.phone ? `${s.name}_${s.phone}` : s.id;
+      if (staffSeen.has(key)) return false;
+      staffSeen.set(key, true);
+      return true;
+    });
+    if (ossStaff.length !== rawOssStaff.length) {
+      localStorage.setItem(STORAGE_KEYS.STAFF, JSON.stringify(ossStaff));
+      console.log(`[AliyunOSS] kt_staff 去重: ${rawOssStaff.length} → ${ossStaff.length}`);
+    }
     if (ossStaff.length > 0) {
       const webTeachers = ossStaff.map((s: any) => ({
         id: s.id,

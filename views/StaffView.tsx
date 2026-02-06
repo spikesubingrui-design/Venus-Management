@@ -136,10 +136,28 @@ const StaffView: React.FC<StaffViewProps> = ({ currentUser }) => {
     return new Date(today.setDate(diff)).toISOString().split('T')[0];
   });
 
+  // 去重函数：按 name+phone 或 id 去重
+  const dedupTeachers = (arr: Teacher[]): Teacher[] => {
+    const seen = new Map();
+    return arr.filter((t: any) => {
+      const key = t.name && t.phone ? `${t.name}_${t.phone}` : t.id;
+      if (seen.has(key)) return false;
+      seen.set(key, true);
+      return true;
+    });
+  };
+
   useEffect(() => {
     const saved = localStorage.getItem('kt_teachers');
     if (saved) {
-      setTeachers(JSON.parse(saved));
+      const parsed = JSON.parse(saved);
+      const deduped = dedupTeachers(parsed);
+      setTeachers(deduped);
+      // 如果有重复，清理localStorage
+      if (deduped.length !== parsed.length) {
+        localStorage.setItem('kt_teachers', JSON.stringify(deduped));
+        console.log(`[StaffView] 教职工去重: ${parsed.length} → ${deduped.length}`);
+      }
     }
     // 不再预填充模拟数据，初始为空列表
     

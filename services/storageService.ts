@@ -237,16 +237,33 @@ const LOCAL_ONLY_KEYS = new Set([
  */
 export function saveAndSync(key: string, data: any): void {
   try {
-    localStorage.setItem(key, JSON.stringify(data));
+    // 对数组数据自动去重（按 name+phone / name+class / id 去重）
+    let finalData = data;
+    if (Array.isArray(data) && data.length > 0 && typeof data[0] === 'object' && data[0] !== null) {
+      const seen = new Map();
+      finalData = data.filter((item: any) => {
+        const dedupKey = (item.name && item.phone) ? `${item.name}_${item.phone}` 
+          : (item.name && item.class) ? `${item.name}_${item.class}`
+          : item.id;
+        if (!dedupKey || seen.has(dedupKey)) return false;
+        seen.set(dedupKey, true);
+        return true;
+      });
+      if (finalData.length !== data.length) {
+        console.log(`[Storage] 🔄 ${key} 自动去重: ${data.length} → ${finalData.length}`);
+      }
+    }
+    
+    localStorage.setItem(key, JSON.stringify(finalData));
     
     // 本地专用键不同步
     if (LOCAL_ONLY_KEYS.has(key) || !key.startsWith('kt_')) return;
     
     // 数组数据的安全检查
-    if (Array.isArray(data)) {
+    if (Array.isArray(finalData)) {
       const minCount = PROTECTED_SYNC_KEYS[key];
-      if (minCount && data.length < minCount) {
-        console.warn(`[Storage] ⚠️ ${key} 数据不足(${data.length}条 < ${minCount})，跳过同步`);
+      if (minCount && finalData.length < minCount) {
+        console.warn(`[Storage] ⚠️ ${key} 数据不足(${finalData.length}条 < ${minCount})，跳过同步`);
         return;
       }
     }
@@ -256,7 +273,7 @@ export function saveAndSync(key: string, data: any): void {
       syncToAliyun(key);
     }).catch(() => {});
     
-    console.log(`[Storage] 💾 ${key} 已保存并触发同步 (${Array.isArray(data) ? data.length + '条' : 'object'})`);
+    console.log(`[Storage] 💾 ${key} 已保存并触发同步 (${Array.isArray(finalData) ? finalData.length + '条' : 'object'})`);
   } catch (e) {
     console.error(`[Storage] 保存失败 ${key}:`, e);
   }
