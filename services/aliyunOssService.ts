@@ -318,27 +318,43 @@ export function syncToAliyun(storageKey: string): void {
  * 数据去重函数
  */
 function deduplicateData<T extends { id: string; name?: string }>(data: T[]): T[] {
-  const seen = new Map<string, T>();
-  const nameCount = new Map<string, number>();
-  
+  // 第一轮：按 ID 去重
+  const seenId = new Map<string, T>();
   for (const item of data) {
-    // 优先按 ID 去重
-    if (!seen.has(item.id)) {
-      seen.set(item.id, item);
-      // 统计同名数量
-      if (item.name) {
-        nameCount.set(item.name, (nameCount.get(item.name) || 0) + 1);
-      }
+    if (item.id && !seenId.has(item.id)) {
+      seenId.set(item.id, item);
     }
   }
-  
-  const result = Array.from(seen.values());
-  console.log(`[AliyunOSS] 🧹 去重: ${data.length} → ${result.length} 条`);
-  
-  // 检查是否有重名
-  const duplicateNames = Array.from(nameCount.entries()).filter(([, count]) => count > 1);
-  if (duplicateNames.length > 0) {
-    console.warn(`[AliyunOSS] ⚠️ 发现重名: ${duplicateNames.map(([n, c]) => `${n}(${c})`).join(', ')}`);
+  const afterIdDedup = Array.from(seenId.values());
+
+  // 第二轮：按 name 组合键去重（同名+同班/同手机号 视为同一人）
+  const seenKey = new Map<string, T>();
+  for (const item of afterIdDedup) {
+    const r = item as any;
+    let dedupKey: string;
+    if (r.name) {
+      if (r.phone) {
+        dedupKey = `${r.name}_${r.phone}`;
+      } else if (r.class) {
+        dedupKey = `${r.name}_${r.class}`;
+      } else if (r.assignedClass) {
+        dedupKey = `${r.name}_${r.assignedClass}`;
+      } else if (r.className) {
+        dedupKey = `${r.name}_${r.className}`;
+      } else {
+        dedupKey = r.name;
+      }
+    } else {
+      dedupKey = r.id;
+    }
+    if (dedupKey && !seenKey.has(dedupKey)) {
+      seenKey.set(dedupKey, item);
+    }
+  }
+
+  const result = Array.from(seenKey.values());
+  if (result.length !== data.length) {
+    console.log(`[AliyunOSS] 🧹 去重: ${data.length} → ${afterIdDedup.length}(ID) → ${result.length}(组合键)`);
   }
   
   return result;
