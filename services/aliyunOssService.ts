@@ -440,11 +440,13 @@ export async function initializeFromAliyun(
   // 下载云端数据后，自动转换并同步到 kt_teachers，确保网页视图显示正确
   try {
     const rawOssStaff = JSON.parse(localStorage.getItem(STORAGE_KEYS.STAFF) || '[]');
-    // 对 kt_staff 先去重（按 name+phone 或 id）
+    // 对 kt_staff 先去重（按 name 组合键）
     const staffSeen = new Map();
     const ossStaff = rawOssStaff.filter((s: any) => {
-      const key = s.name && s.phone ? `${s.name}_${s.phone}` : s.id;
-      if (staffSeen.has(key)) return false;
+      const key = s.name 
+        ? (s.phone ? `${s.name}_${s.phone}` : s.class ? `${s.name}_${s.class}` : s.name)
+        : s.id;
+      if (!key || staffSeen.has(key)) return false;
       staffSeen.set(key, true);
       return true;
     });
