@@ -21,7 +21,9 @@ import {
   CloudOff,
   Leaf,
   TreeDeciduous,
-  Sprout
+  Sprout,
+  Edit3,
+  X
 } from 'lucide-react';
 import { User, UserRole } from '../types';
 import OperationLogsViewer from '../components/OperationLogsViewer';
@@ -56,6 +58,8 @@ const SystemManagementView: React.FC<SystemManagementViewProps> = ({ currentUser
   const [newPhonePosition, setNewPhonePosition] = useState('');
   const [newPhoneClass, setNewPhoneClass] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+  const [editingPhone, setEditingPhone] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState<AuthorizedPhone>({} as AuthorizedPhone);
   const [allUsers, setAllUsers] = useState<User[]>([]);
   const [activeTab, setActiveTab] = useState<'phones' | 'users' | 'logs' | 'cloud'>('phones');
   
@@ -219,6 +223,29 @@ const SystemManagementView: React.FC<SystemManagementViewProps> = ({ currentUser
     const updated = authorizedPhones.filter(p => p.phone !== phone);
     setAuthorizedPhones(updated);
     saveAndSync('kt_authorized_phones', updated);
+  };
+
+  // 开始编辑
+  const handleStartEdit = (p: AuthorizedPhone) => {
+    setEditingPhone(p.phone);
+    setEditForm({ ...p });
+  };
+
+  // 保存编辑
+  const handleSaveEdit = () => {
+    if (!editingPhone) return;
+    const updated = authorizedPhones.map(p => 
+      p.phone === editingPhone ? { ...p, ...editForm } : p
+    );
+    setAuthorizedPhones(updated);
+    saveAndSync('kt_authorized_phones', updated);
+    setEditingPhone(null);
+  };
+
+  // 取消编辑
+  const handleCancelEdit = () => {
+    setEditingPhone(null);
+    setEditForm({} as AuthorizedPhone);
   };
 
   const handleDeleteUser = async (userId: string) => {
@@ -511,45 +538,111 @@ const SystemManagementView: React.FC<SystemManagementViewProps> = ({ currentUser
                             'SUPER_ADMIN': '超级管理员'
                           };
                           
+                          const isEditing = editingPhone === phoneNumber;
+                          const editCls = "px-2 py-1.5 bg-amber-50 border border-amber-200 rounded-lg text-xs font-bold focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500 outline-none w-full";
+                          const selectCls = "px-2 py-1.5 bg-amber-50 border border-amber-200 rounded-lg text-xs font-bold focus:ring-2 focus:ring-amber-500/30 outline-none";
+                          
                           return (
-                            <tr key={phoneNumber} className="group hover:bg-amber-50/50 transition-colors">
-                              <td className="py-4 pl-4">
+                            <tr key={phoneNumber} className={`group transition-colors ${isEditing ? 'bg-amber-50/80' : 'hover:bg-amber-50/50'}`}>
+                              <td className="py-3 pl-4">
                                 <div className={`w-3 h-3 rounded-full ${isRegistered ? 'bg-emerald-500' : 'bg-slate-200'}`} 
                                   title={isRegistered ? '已激活' : '等待准入'} />
                               </td>
-                              <td className="py-4">
-                                <span className="font-bold text-slate-800 text-sm">{name || <span className="text-slate-300">-</span>}</span>
+                              <td className="py-3">
+                                {isEditing ? (
+                                  <input value={editForm.name || ''} onChange={e => setEditForm({...editForm, name: e.target.value})} className={editCls} placeholder="姓名" />
+                                ) : (
+                                  <span className="font-bold text-slate-800 text-sm">{name || <span className="text-slate-300">-</span>}</span>
+                                )}
                               </td>
-                              <td className="py-4">
-                                {gender ? (
+                              <td className="py-3">
+                                {isEditing ? (
+                                  <select value={editForm.gender || ''} onChange={e => setEditForm({...editForm, gender: e.target.value})} className={selectCls}>
+                                    <option value="">-</option>
+                                    <option value="女">女</option>
+                                    <option value="男">男</option>
+                                  </select>
+                                ) : gender ? (
                                   <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${gender === '男' ? 'bg-blue-50 text-blue-600' : 'bg-pink-50 text-pink-600'}`}>{gender}</span>
                                 ) : <span className="text-slate-300">-</span>}
                               </td>
-                              <td className="py-4">
+                              <td className="py-3">
                                 <span className="font-mono font-bold text-slate-700 text-sm tracking-wider">{phoneNumber}</span>
                               </td>
-                              <td className="py-4">
-                                {campus ? (
+                              <td className="py-3">
+                                {isEditing ? (
+                                  <select value={editForm.campus || ''} onChange={e => setEditForm({...editForm, campus: e.target.value})} className={selectCls}>
+                                    <option value="">-</option>
+                                    <option value="总园">总园</option>
+                                    <option value="南江">南江园</option>
+                                    <option value="高新">高新园</option>
+                                    <option value="新市花园">新市花园园</option>
+                                    <option value="创越">创越园</option>
+                                    <option value="七幼">金星第七幼儿园</option>
+                                    <option value="八幼">金星第八幼儿园</option>
+                                    <option value="九幼">金星第九幼儿园</option>
+                                    <option value="十幼">金星第十幼儿园</option>
+                                    <option value="十二幼">金星第十二幼儿园</option>
+                                    <option value="十七幼">金星第十七幼儿园</option>
+                                  </select>
+                                ) : campus ? (
                                   <span className="text-xs font-bold px-2 py-0.5 bg-indigo-50 text-indigo-600 rounded-full">{campus}</span>
                                 ) : <span className="text-slate-300">-</span>}
                               </td>
-                              <td className="py-4">
-                                {position ? (
+                              <td className="py-3">
+                                {isEditing ? (
+                                  <select value={editForm.position || ''} onChange={e => setEditForm({...editForm, position: e.target.value})} className={selectCls}>
+                                    <option value="">选择职务</option>
+                                    {positionList.map(pos => <option key={pos} value={pos}>{pos}</option>)}
+                                  </select>
+                                ) : position ? (
                                   <span className="text-xs font-bold text-slate-600">{position}</span>
                                 ) : <span className="text-slate-300">-</span>}
                               </td>
-                              <td className="py-4">
-                                {assignedClass ? (
+                              <td className="py-3">
+                                {isEditing ? (
+                                  <select value={editForm.assignedClass || ''} onChange={e => setEditForm({...editForm, assignedClass: e.target.value})} className={selectCls}>
+                                    <option value="">选择班级</option>
+                                    {classList.map(c => <option key={c} value={c}>{c}</option>)}
+                                  </select>
+                                ) : assignedClass ? (
                                   <span className="text-xs font-bold px-2 py-0.5 bg-amber-50 text-amber-700 rounded-full">{assignedClass}</span>
                                 ) : <span className="text-slate-300">-</span>}
                               </td>
-                              <td className="py-4">
-                                <span className="text-xs font-bold text-slate-500">{roleLabel[role] || role || '-'}</span>
+                              <td className="py-3">
+                                {isEditing ? (
+                                  <select value={editForm.role || ''} onChange={e => setEditForm({...editForm, role: e.target.value})} className={selectCls}>
+                                    <option value="TEACHER">教师</option>
+                                    <option value="ADMIN">管理员</option>
+                                    <option value="HEALTH_TEACHER">保健医生</option>
+                                    <option value="KITCHEN">厨房</option>
+                                    <option value="SECURITY">安保</option>
+                                    <option value="PARENT">家长</option>
+                                  </select>
+                                ) : (
+                                  <span className="text-xs font-bold text-slate-500">{roleLabel[role] || role || '-'}</span>
+                                )}
                               </td>
-                              <td className="py-4 text-right pr-4">
-                                <button onClick={() => handleDeletePhone(phoneNumber)} className="p-2 text-slate-200 hover:text-rose-500 transition-colors opacity-0 group-hover:opacity-100">
-                                  <Trash2 className="w-4 h-4" />
-                                </button>
+                              <td className="py-3 text-right pr-4">
+                                {isEditing ? (
+                                  <div className="flex items-center gap-1 justify-end">
+                                    <button onClick={handleSaveEdit} className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors" title="保存">
+                                      <CheckCircle2 className="w-4 h-4" />
+                                    </button>
+                                    <button onClick={handleCancelEdit} className="p-1.5 text-slate-400 hover:bg-slate-100 rounded-lg transition-colors" title="取消">
+                                      <X className="w-4 h-4" />
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <div className="flex items-center gap-1 justify-end opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <button onClick={() => handleStartEdit(p)} className="p-1.5 text-slate-300 hover:text-amber-600 transition-colors" title="编辑">
+                                      <Edit3 className="w-4 h-4" />
+                                    </button>
+                                    <button onClick={() => handleDeletePhone(phoneNumber)} className="p-1.5 text-slate-300 hover:text-rose-500 transition-colors" title="删除">
+                                      <Trash2 className="w-4 h-4" />
+                                    </button>
+                                  </div>
+                                )}
                               </td>
                             </tr>
                           );
