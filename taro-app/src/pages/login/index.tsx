@@ -361,7 +361,7 @@ export default function Login() {
     }
   }
 
-  // 手机号快捷注册 - 自动从教职工名单获取信息
+  // 手机号注册 - 验证码 + 密码
   const handleRegister = async () => {
     if (!phone.trim() || phone.length !== 11) {
       safeToast('请输入有效手机号')
@@ -369,6 +369,14 @@ export default function Login() {
     }
     if (!smsCode.trim()) {
       safeToast('请输入验证码')
+      return
+    }
+    if (!password.trim() || password.length < 6) {
+      safeToast('请设置至少6位密码')
+      return
+    }
+    if (password !== confirmPassword) {
+      safeToast('两次密码输入不一致')
       return
     }
 
@@ -396,9 +404,13 @@ export default function Login() {
       const staffList = Taro.getStorageSync('kt_staff') || []
       const staffInfo = staffList.find((s: any) => s.phone === phone)
 
+      // 从授权名单中查找
+      const authorizedPhonesRaw: any[] = Taro.getStorageSync('kt_authorized_phones') || []
+      const authInfo = authorizedPhonesRaw.find((p: any) => 
+        typeof p === 'object' ? p.phone === phone : p === phone
+      )
+
       if (!staffInfo) {
-        // 检查授权手机号列表（兼容纯字符串和对象格式）
-        const authorizedPhonesRaw: any[] = Taro.getStorageSync('kt_authorized_phones') || []
         const authorizedPhoneList = authorizedPhonesRaw.map((p: any) => typeof p === 'string' ? p : p.phone)
         if (authorizedPhoneList.length > 0 && !authorizedPhoneList.includes(phone)) {
           safeToast('未在教职工名单中，请联系园长添加')
@@ -407,19 +419,31 @@ export default function Login() {
         }
       }
 
+      // 合并班级信息
+      let assignedClasses: string[] = staffInfo?.assignedClasses || []
+      if (typeof authInfo === 'object' && authInfo?.assignedClass && !assignedClasses.includes(authInfo.assignedClass)) {
+        assignedClasses = [...assignedClasses, authInfo.assignedClass]
+      }
+
       // 创建用户 - 使用手机号作为唯一ID防止跨设备重复
       const newUser: User = {
         id: `user_${phone}`,
         phone,
-        name: staffInfo?.name || `用户${phone.slice(-4)}`,
-        role: staffInfo?.role || 'TEACHER',
-        campus: '十七幼',
-        assignedClasses: staffInfo?.assignedClasses || [],
+        name: staffInfo?.name || (typeof authInfo === 'object' ? authInfo?.name : '') || `用户${phone.slice(-4)}`,
+        role: staffInfo?.role || (typeof authInfo === 'object' ? authInfo?.role : '') || 'TEACHER',
+        campus: staffInfo?.campus || (typeof authInfo === 'object' ? authInfo?.campus : '') || '十七幼',
+        assignedClasses,
         createdAt: new Date().toISOString()
       }
 
       users.push(newUser)
       Taro.setStorageSync('kt_all_users', users)
+
+      // 保存密码（简单哈希）
+      const passwords = Taro.getStorageSync('kt_user_passwords') || {}
+      const hashedPwd = btoa(encodeURIComponent(password + '_venus_salt_' + phone))
+      passwords[phone] = hashedPwd
+      Taro.setStorageSync('kt_user_passwords', passwords)
       
       // 同步用户数据到云端
       if (isAliyunConfigured) {
@@ -430,6 +454,7 @@ export default function Login() {
         })
       }
 
+      safeToast('注册成功', 'success')
       // 登录成功
       await onLoginSuccess(newUser)
       
@@ -632,6 +657,42 @@ export default function Login() {
                 <Text className='dev-code-hint'>开发模式验证码: {devCode}</Text>
               )}
             </View>
+          )}
+
+          {/* 注册密码 - 仅注册模式 */}
+          {mode === 'register' && (
+            <>
+              <View className='form-item'>
+                <Text className='label'>设置密码</Text>
+                <View className='password-wrap'>
+                  <Input
+                    className='input'
+                    password={!showPassword}
+                    placeholder='请设置6-20位密码'
+                    value={password}
+                    onInput={(e) => setPassword(e.detail.value)}
+                    maxlength={20}
+                  />
+                  <Text 
+                    className='toggle-eye' 
+                    onClick={() => setShowPassword(!showPassword)}
+                  >
+                    {showPassword ? '🙈' : '👁️'}
+                  </Text>
+                </View>
+              </View>
+              <View className='form-item'>
+                <Text className='label'>确认密码</Text>
+                <Input
+                  className='input'
+                  password
+                  placeholder='请再次输入密码'
+                  value={confirmPassword}
+                  onInput={(e) => setConfirmPassword(e.detail.value)}
+                  maxlength={20}
+                />
+              </View>
+            </>
           )}
 
           {/* 协议勾选 - 微信审核要求 */}
