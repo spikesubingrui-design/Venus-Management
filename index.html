@@ -53,8 +53,27 @@
           .grid-cols-3 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
           .grid-cols-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
         }
+        
+        /* 日期选择器中文化 */
+        input[type="date"], input[type="datetime-local"], input[type="time"] {
+          font-family: 'Noto Sans SC', sans-serif;
+        }
+        input[type="date"]::-webkit-calendar-picker-indicator,
+        input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+          cursor: pointer;
+          filter: invert(0.5);
+        }
+        /* 日期选择器样式增强 */
+        input[type="date"]::-webkit-datetime-edit-year-field,
+        input[type="date"]::-webkit-datetime-edit-month-field,
+        input[type="date"]::-webkit-datetime-edit-day-field {
+          padding: 2px;
+        }
+        input[type="date"]::-webkit-datetime-edit-text {
+          color: #94a3b8;
+        }
     </style>
-  <script type="module" crossorigin src="/Venus-Management/assets/main-BdCZET9a.js"></script>
+  <script type="module" crossorigin src="/Venus-Management/assets/main-ChAUkpHv.js"></script>
 </head>
 <body class="bg-slate-50 text-slate-900">
     <div id="root"></div>
