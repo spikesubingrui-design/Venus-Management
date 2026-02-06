@@ -252,6 +252,7 @@ export function saveAndSync(key: string, data: any): void {
           ? (item.phone ? `${item.name}_${item.phone}` 
             : item.class ? `${item.name}_${item.class}` 
             : item.assignedClass ? `${item.name}_${item.assignedClass}` 
+            : item.className ? `${item.name}_${item.className}`
             : item.name)
           : item.id;
         if (!dedupKey || seen.has(dedupKey)) return false;
