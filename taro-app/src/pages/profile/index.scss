@@ -575,10 +575,111 @@ $red-600: #dc2626;
     }
   }
   
-  .phone-delete {
-    font-size: 26rpx;
-    color: $red-500;
-    padding: 8rpx 16rpx;
+  .phone-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 8rpx;
     flex-shrink: 0;
+  }
+
+  .phone-edit {
+    font-size: 24rpx;
+    color: #d97706;
+    padding: 6rpx 16rpx;
+    background: #fffbeb;
+    border-radius: 8rpx;
+    text-align: center;
+    font-weight: 600;
+  }
+
+  .phone-delete {
+    font-size: 24rpx;
+    color: $red-500;
+    padding: 6rpx 16rpx;
+    background: #fef2f2;
+    border-radius: 8rpx;
+    text-align: center;
+    font-weight: 600;
+  }
+
+  .phone-item.editing {
+    background: #fffbeb;
+    border: 2rpx solid #fbbf24;
+    border-radius: 16rpx;
+    padding: 16rpx;
+    margin-bottom: 12rpx;
+  }
+
+  .phone-edit-form {
+    width: 100%;
+  }
+
+  .phone-edit-row {
+    display: flex;
+    align-items: center;
+    margin-bottom: 12rpx;
+    gap: 12rpx;
+  }
+
+  .phone-edit-label {
+    font-size: 24rpx;
+    color: #64748b;
+    font-weight: 600;
+    width: 80rpx;
+    flex-shrink: 0;
+  }
+
+  .phone-edit-input {
+    flex: 1;
+    font-size: 26rpx;
+    padding: 10rpx 16rpx;
+    background: #fff;
+    border: 2rpx solid #e2e8f0;
+    border-radius: 10rpx;
+    color: #1e293b;
+  }
+
+  .phone-edit-radio-group {
+    display: flex;
+    gap: 12rpx;
+  }
+
+  .phone-edit-radio {
+    font-size: 24rpx;
+    padding: 8rpx 24rpx;
+    border-radius: 10rpx;
+    background: #f1f5f9;
+    color: #64748b;
+    font-weight: 600;
+
+    &.active {
+      background: #fbbf24;
+      color: #fff;
+    }
+  }
+
+  .phone-edit-actions {
+    display: flex;
+    gap: 16rpx;
+    justify-content: flex-end;
+    margin-top: 8rpx;
+  }
+
+  .phone-edit-save {
+    font-size: 26rpx;
+    color: #fff;
+    background: #16a34a;
+    padding: 10rpx 28rpx;
+    border-radius: 10rpx;
+    font-weight: 700;
+  }
+
+  .phone-edit-cancel {
+    font-size: 26rpx;
+    color: #64748b;
+    background: #f1f5f9;
+    padding: 10rpx 28rpx;
+    border-radius: 10rpx;
+    font-weight: 600;
   }
 }
