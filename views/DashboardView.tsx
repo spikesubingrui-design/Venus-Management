@@ -37,7 +37,18 @@ const DashboardView: React.FC<DashboardViewProps> = ({ user, onNavigate }) => {
     setLoading(true);
     
     const savedStudents = localStorage.getItem('kt_students');
-    if (savedStudents) setStudents(JSON.parse(savedStudents));
+    if (savedStudents) {
+      const parsed = JSON.parse(savedStudents);
+      // 去重保护：按 name+class 去重
+      const seen = new Map();
+      const deduped = parsed.filter((s: any) => {
+        const key = s.name && s.class ? `${s.name}_${s.class}` : s.id;
+        if (seen.has(key)) return false;
+        seen.set(key, true);
+        return true;
+      });
+      setStudents(deduped);
+    }
     
     const savedTeachers = localStorage.getItem('kt_teachers');
     if (savedTeachers) setTeachers(JSON.parse(savedTeachers));

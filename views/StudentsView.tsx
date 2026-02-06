@@ -114,19 +114,37 @@ const StudentsView: React.FC<StudentsViewProps> = ({ currentUser }) => {
     loadData();
   }, [currentUser]);
 
+  // 去重函数：按 name+class 或 id 去重，保留最新记录
+  const deduplicateStudents = (students: Student[]): Student[] => {
+    const seen = new Map<string, Student>();
+    for (const s of students) {
+      // 优先用 name+class 作为唯一键（更可靠），其次用 id
+      const key = s.name && s.class ? `${s.name}_${s.class}` : s.id;
+      if (!seen.has(key)) {
+        seen.set(key, s);
+      }
+    }
+    return Array.from(seen.values());
+  };
+
   const loadData = async () => {
     setLoading(true);
     let data: Student[] = [];
 
-    if (isSupabaseConfigured) {
+    // 优先从 localStorage 加载（由 OSS 云端同步，数据最准确）
+    const local = localStorage.getItem('kt_students');
+    if (local) {
+      data = JSON.parse(local);
+    }
+
+    // 仅当本地无数据时，才从 Supabase 获取
+    if (data.length === 0 && isSupabaseConfigured) {
       const { data: cloudData } = await supabase.from('students').select('*').order('name');
       if (cloudData) data = cloudData;
     }
 
-    if (data.length === 0) {
-      const local = localStorage.getItem('kt_students');
-      if (local) data = JSON.parse(local);
-    }
+    // 去重保护：防止数据重复累积
+    data = deduplicateStudents(data);
 
     // 多园区过滤逻辑
     if (currentUser.role !== 'SUPER_ADMIN') {
