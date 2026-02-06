@@ -378,6 +378,10 @@ export async function initializeFromAliyun(
     STORAGE_KEYS.HEALTH_RECORDS,
     STORAGE_KEYS.ATTENDANCE_RECORDS,
     STORAGE_KEYS.MEAL_PLANS,
+    STORAGE_KEYS.STUDENT_EVALUATIONS,        // 发展评价
+    STORAGE_KEYS.OBSERVATIONS,               // 观察记录
+    STORAGE_KEYS.GROWTH_RECORDS,             // 成长记录
+    STORAGE_KEYS.PROFESSIONAL_OBSERVATIONS,  // 专业观察记录
   ];
 
   const results: Record<string, { count: number; error?: string }> = {};
@@ -517,6 +521,10 @@ export async function uploadAllToAliyun(
     STORAGE_KEYS.HEALTH_RECORDS,
     STORAGE_KEYS.ATTENDANCE_RECORDS,
     STORAGE_KEYS.MEAL_PLANS,
+    STORAGE_KEYS.STUDENT_EVALUATIONS,        // 发展评价
+    STORAGE_KEYS.OBSERVATIONS,               // 观察记录
+    STORAGE_KEYS.GROWTH_RECORDS,             // 成长记录
+    STORAGE_KEYS.PROFESSIONAL_OBSERVATIONS,  // 专业观察记录
   ];
 
   const results: Record<string, { count: number; error?: string }> = {};
