@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 import { Teacher, ScheduleRecord, User } from '../types';
 import { hasPermission } from '../services/permissionService';
-import { logOperation } from '../services/storageService';
+import { logOperation, saveAndSync } from '../services/storageService';
 import { auditCreate, auditUpdate, auditDelete } from '../services/auditService';
 import { canEditSensitiveFields, getSensitiveFieldsList, filterEditableFields, SENSITIVE_FIELDS, getPermissionSummary } from '../services/fieldPermissionService';
 import ConfirmUploadModal, { UploadSuccessToast } from '../components/ConfirmUploadModal';
@@ -22,7 +22,7 @@ import { uploadToAliyun, isAliyunConfigured } from '../services/aliyunOssService
  */
 function syncTeachersToOssFormat(webTeachers: Teacher[]): void {
   // 保存网页格式
-  localStorage.setItem('kt_teachers', JSON.stringify(webTeachers));
+  saveAndSync('kt_teachers', webTeachers);
   
   // 转换为OSS格式并保存到 kt_staff
   const ossStaff = webTeachers.map((t: any) => ({
@@ -39,7 +39,7 @@ function syncTeachersToOssFormat(webTeachers: Teacher[]): void {
     hireDate: t.hireDate || '',
     status: t.status || 'active',
   }));
-  localStorage.setItem('kt_staff', JSON.stringify(ossStaff));
+  saveAndSync('kt_staff', ossStaff);
   
   // 异步上传到云端（带安全检查）
   if (isAliyunConfigured && ossStaff.length >= 20) {
@@ -300,7 +300,7 @@ const StaffView: React.FC<StaffViewProps> = ({ currentUser }) => {
     }
     
     setSchedules(updated);
-    localStorage.setItem('kt_schedules', JSON.stringify(updated));
+    saveAndSync('kt_schedules', updated);
   };
 
   const getSchedule = (teacherId: string, date: string) => {
@@ -819,7 +819,7 @@ const StaffView: React.FC<StaffViewProps> = ({ currentUser }) => {
             };
             const updated = [newRecord, ...dutyRecords];
             setDutyRecords(updated);
-            localStorage.setItem('kt_duty_records', JSON.stringify(updated));
+            saveAndSync('kt_duty_records', updated);
             setIsDutyModalOpen(false);
           }} className="bg-white rounded-3xl p-8 w-full max-w-lg space-y-6 animate-in zoom-in-95">
             <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
@@ -880,7 +880,7 @@ const StaffView: React.FC<StaffViewProps> = ({ currentUser }) => {
             };
             const updated = [newRecord, ...mealRecords];
             setMealRecords(updated);
-            localStorage.setItem('kt_meal_records', JSON.stringify(updated));
+            saveAndSync('kt_meal_records', updated);
             setIsMealModalOpen(false);
           }} className="bg-white rounded-3xl p-8 w-full max-w-lg space-y-6 animate-in zoom-in-95 my-8">
             <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-2">

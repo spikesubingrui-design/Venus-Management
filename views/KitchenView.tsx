@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { generateWeeklyRecipe } from '../services/geminiService';
 import { WeeklyRecipeRecord, CampusGrade, DailyRecipe, MealDish, CAMPUS_CONFIG, User } from '../types';
+import { saveAndSync } from '../services/storageService';
 import { DAILY_RECOMMENDED_INTAKE, getNutritionSuggestions, NutritionSuggestion } from '../services/nutritionDatabase';
 import { hasPermission } from '../services/permissionService';
 import { logOperation, STORAGE_KEYS, saveData, getData } from '../services/storageService';
@@ -85,7 +86,7 @@ const KitchenView: React.FC<KitchenViewProps> = ({ currentUser }) => {
     if (currentRecord && currentRecord.status === 'CONFIRMED') {
       const updated = { ...campusRecords, [currentRecord.grade]: currentRecord };
       setCampusRecords(updated);
-      localStorage.setItem('kt_campus_records', JSON.stringify(updated));
+      saveAndSync('kt_campus_records', updated);
     }
   }, [currentRecord?.status]);
 

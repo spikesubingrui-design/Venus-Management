@@ -6,6 +6,7 @@ import { Logo } from '../App';
 import { supabase, isSupabaseConfigured } from '../services/supabaseClient';
 import { isAliyunConfigured } from '../services/aliyunOssService';
 import { useToast } from '../components/Toast';
+import { saveAndSync } from '../services/storageService';
 
 interface AuthViewProps {
   onLogin: (user: User) => void;
@@ -216,7 +217,7 @@ const AuthView: React.FC<AuthViewProps> = ({ onLogin }) => {
           createdAt: new Date().toISOString(),
         };
         allUsers.push(user);
-        localStorage.setItem('kt_all_users', JSON.stringify(allUsers));
+        saveAndSync('kt_all_users', allUsers);
       }
       
       toast.success('登录成功', `欢迎，${user.name}！`);
@@ -249,7 +250,7 @@ const AuthView: React.FC<AuthViewProps> = ({ onLogin }) => {
     }
     
     // 同步到本地
-    localStorage.setItem('kt_campuses', JSON.stringify(campusList));
+    saveAndSync('kt_campuses', campusList);
     setCampuses(campusList);
     if (campusList.length > 0) setCampus(campusList[0]);
   };
@@ -334,10 +335,10 @@ const AuthView: React.FC<AuthViewProps> = ({ onLogin }) => {
     const authPhones: string[] = JSON.parse(localStorage.getItem('kt_authorized_phones') || '[]');
     if (!authPhones.includes(PRESET_FINANCE.phone)) {
       authPhones.push(PRESET_FINANCE.phone);
-      localStorage.setItem('kt_authorized_phones', JSON.stringify(authPhones));
+      saveAndSync('kt_authorized_phones', authPhones);
     }
     
-    localStorage.setItem('kt_all_users', JSON.stringify(allUsers));
+    saveAndSync('kt_all_users', allUsers);
     localStorage.setItem('kt_user_passwords', JSON.stringify(passwords));
   };
 
@@ -513,7 +514,7 @@ const AuthView: React.FC<AuthViewProps> = ({ onLogin }) => {
         }
         passwords[phone] = passwordHash;
         
-        localStorage.setItem('kt_all_users', JSON.stringify(allUsers));
+        saveAndSync('kt_all_users', allUsers);
         localStorage.setItem('kt_user_passwords', JSON.stringify(passwords));
         
         toast.success('登录成功', `欢迎回来，${cloudUser.name}！`);
@@ -599,7 +600,7 @@ const AuthView: React.FC<AuthViewProps> = ({ onLogin }) => {
       allUsers.push(newUser);
       passwords[phone] = passwordHash;
       
-      localStorage.setItem('kt_all_users', JSON.stringify(allUsers));
+      saveAndSync('kt_all_users', allUsers);
       localStorage.setItem('kt_user_passwords', JSON.stringify(passwords));
       
       toast.success('注册成功', `欢迎加入，${newUser.name}！`);

@@ -4,6 +4,7 @@ import Taro, { useRouter } from '@tarojs/taro'
 import useGlobalShare from '../../hooks/useGlobalShare'
 import NavBar, { NavBarPlaceholder } from '../../components/NavBar'
 import { getCurrentUser } from '../../services/permissionService'
+import { uploadToAliyun, isAliyunConfigured } from '../../services/aliyunOssService'
 import './detail.scss'
 
 interface Student {
@@ -128,6 +129,10 @@ export default function StudentDetail() {
     setStudent(updatedForm as Student)
     setIsEditing(false)
     Taro.showToast({ title: '保存成功', icon: 'success' })
+    // 同步到OSS
+    if (isAliyunConfigured && updated.length >= 10) {
+      uploadToAliyun('kt_students', updated).catch(() => {})
+    }
   }
 
   // 删除学生（需要二次确认）
@@ -148,6 +153,10 @@ export default function StudentDetail() {
                 const students = Taro.getStorageSync('kt_students') || []
                 const updated = students.filter((s: Student) => s.id !== id)
                 Taro.setStorageSync('kt_students', updated)
+                // 同步到OSS
+                if (isAliyunConfigured && updated.length >= 10) {
+                  uploadToAliyun('kt_students', updated).catch(() => {})
+                }
                 Taro.showToast({ title: '已删除', icon: 'success' })
                 setTimeout(() => {
                   Taro.navigateBack()

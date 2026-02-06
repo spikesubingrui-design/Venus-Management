@@ -3,6 +3,7 @@ import { View, Text, ScrollView, Picker } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import useGlobalShare from '../../hooks/useGlobalShare'
 import { downloadPayments, isSupabaseConfigured } from '../../services/cloudSyncService'
+import { uploadToAliyun, isAliyunConfigured } from '../../services/aliyunOssService'
 import NavBar, { NavBarPlaceholder } from '../../components/NavBar'
 import './index.scss'
 
@@ -122,6 +123,9 @@ export default function Finance() {
         if (res.confirm) {
           const updated = payments.filter(p => p.id !== id)
           Taro.setStorageSync('kt_payments', updated)
+          if (isAliyunConfigured) {
+            uploadToAliyun('kt_payments', updated).catch(() => {})
+          }
           setPayments(updated)
           Taro.showToast({ title: '已删除', icon: 'success' })
         }

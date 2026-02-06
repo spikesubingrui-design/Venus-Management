@@ -9,6 +9,7 @@ import { User } from '../types';
 import { auditCreate, auditUpdate, auditDelete } from '../services/auditService';
 import { EditHistoryButton } from '../components/EditHistoryPanel';
 import { ChineseDatePicker } from '../components/ChineseDatePicker';
+import { saveAndSync } from '../services/storageService';
 
 interface CalendarViewProps {
   user: User;
@@ -151,7 +152,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ user }) => {
   const saveEvents = (newEvents: CalendarEvent[]) => {
     // 只保存自定义活动，不保存节假日
     const customEvents = newEvents.filter(e => !e.id.startsWith('h') && !e.id.startsWith('t') && !e.id.startsWith('s'));
-    localStorage.setItem('kt_calendar_events', JSON.stringify(customEvents));
+    saveAndSync('kt_calendar_events', customEvents);
     setEvents([...HOLIDAYS_2026, ...customEvents]);
   };
 

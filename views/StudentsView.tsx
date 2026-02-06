@@ -11,6 +11,7 @@ import {
 import { QRCodeSVG } from 'qrcode.react';
 import { Student, User, DailyHealthRecord, AttendanceRecord, PickupRecord, GrowthRecord, DevelopmentAssessment } from '../types';
 import { supabase, isSupabaseConfigured } from '../services/supabaseClient';
+import { saveAndSync } from '../services/storageService';
 import { useToast } from '../components/Toast';
 import { ChineseDatePicker, formatChineseDate } from '../components/ChineseDatePicker';
 
@@ -201,7 +202,7 @@ const StudentsView: React.FC<StudentsViewProps> = ({ currentUser }) => {
     
     const updated = [newRecord, ...pickupRecords];
     setPickupRecords(updated);
-    localStorage.setItem('kt_pickup_records', JSON.stringify(updated));
+    saveAndSync('kt_pickup_records', updated);
     setIsPickupModalOpen(false);
     setPickupStudent(null);
   };
@@ -226,7 +227,7 @@ const StudentsView: React.FC<StudentsViewProps> = ({ currentUser }) => {
     
     const updated = [newRecord, ...growthRecords];
     setGrowthRecords(updated);
-    localStorage.setItem('kt_growth_records', JSON.stringify(updated));
+    saveAndSync('kt_growth_records', updated);
     setIsGrowthModalOpen(false);
     setGrowthStudent(null);
   };
@@ -292,7 +293,7 @@ const StudentsView: React.FC<StudentsViewProps> = ({ currentUser }) => {
           todayAttendance: existingRecords[s.id]
         }));
         setStudents(updatedStudents);
-        localStorage.setItem('kt_students', JSON.stringify(updatedStudents));
+        saveAndSync('kt_students', updatedStudents);
       }
       
       const presentCount = Object.values(pendingAttendance).filter(s => s === 'present').length;
@@ -327,7 +328,7 @@ const StudentsView: React.FC<StudentsViewProps> = ({ currentUser }) => {
       s.id === studentId ? { ...s, status, todayAttendance: record } : s
     );
     setStudents(updatedStudents);
-    localStorage.setItem('kt_students', JSON.stringify(updatedStudents));
+    saveAndSync('kt_students', updatedStudents);
   };
 
   // 保存健康记录
@@ -451,7 +452,7 @@ const StudentsView: React.FC<StudentsViewProps> = ({ currentUser }) => {
 
     const updated = [newStudent, ...students];
     setStudents(updated);
-    localStorage.setItem('kt_students', JSON.stringify(updated));
+    saveAndSync('kt_students', updated);
 
     if (isSupabaseConfigured) {
       await supabase.from('students').insert([newStudent]);
@@ -464,7 +465,7 @@ const StudentsView: React.FC<StudentsViewProps> = ({ currentUser }) => {
     if (!confirm('确定要删除该幼儿档案吗？')) return;
     const updated = students.filter(s => s.id !== id);
     setStudents(updated);
-    localStorage.setItem('kt_students', JSON.stringify(updated));
+    saveAndSync('kt_students', updated);
     if (isSupabaseConfigured) {
       await supabase.from('students').delete().eq('id', id);
     }
@@ -1493,7 +1494,7 @@ const StudentsView: React.FC<StudentsViewProps> = ({ currentUser }) => {
             };
             const updated = [newRecord, ...diseaseRecords];
             setDiseaseRecords(updated);
-            localStorage.setItem('kt_disease_records', JSON.stringify(updated));
+            saveAndSync('kt_disease_records', updated);
             setIsDiseaseModalOpen(false);
           }} className="bg-white rounded-3xl p-8 w-full max-w-lg space-y-6 animate-in zoom-in-95">
             <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
@@ -1561,7 +1562,7 @@ const StudentsView: React.FC<StudentsViewProps> = ({ currentUser }) => {
             };
             const updated = [newRecord, ...disinfectRecords];
             setDisinfectRecords(updated);
-            localStorage.setItem('kt_disinfect_records', JSON.stringify(updated));
+            saveAndSync('kt_disinfect_records', updated);
             setIsDisinfectModalOpen(false);
           }} className="bg-white rounded-3xl p-8 w-full max-w-lg space-y-6 animate-in zoom-in-95">
             <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
@@ -2142,7 +2143,7 @@ const StudentsView: React.FC<StudentsViewProps> = ({ currentUser }) => {
                         s.id === selectedStudent.id ? { ...s, ...editForm } : s
                       );
                       setStudents(updatedStudents);
-                      localStorage.setItem('kt_students', JSON.stringify(updatedStudents));
+                      saveAndSync('kt_students', updatedStudents);
                       setSelectedStudent({ ...selectedStudent, ...editForm } as Student);
                       setIsEditingStudent(false);
                       toast.success('保存成功', '学生信息已更新');
@@ -2286,7 +2287,7 @@ const StudentsView: React.FC<StudentsViewProps> = ({ currentUser }) => {
                     
                     const updated = [newRecord, ...pickupRecords];
                     setPickupRecords(updated);
-                    localStorage.setItem('kt_pickup_records', JSON.stringify(updated));
+                    saveAndSync('kt_pickup_records', updated);
                     
                     alert(`✅ ${student.name} ${fd.get('type') === 'dropoff' ? '入园' : '离园'}登记成功！`);
                     setShowParentScanPage(false);

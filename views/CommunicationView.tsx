@@ -8,6 +8,7 @@ import {
 import { QRCodeSVG } from 'qrcode.react';
 import { Announcement, Student, User } from '../types';
 import { hasPermission } from '../services/permissionService';
+import { saveAndSync } from '../services/storageService';
 
 interface CommunicationViewProps {
   currentUser: User;
@@ -110,7 +111,7 @@ const CommunicationView: React.FC<CommunicationViewProps> = ({ currentUser }) =>
       [activeContactId]: [...(histories[activeContactId] || []), newMessage]
     };
     setHistories(updatedHistories);
-    localStorage.setItem('kt_chat_histories', JSON.stringify(updatedHistories));
+    saveAndSync('kt_chat_histories', updatedHistories);
 
     setContacts(prev => prev.map(c => 
       c.id === activeContactId 
@@ -139,7 +140,7 @@ const CommunicationView: React.FC<CommunicationViewProps> = ({ currentUser }) =>
     
     const updated = [newAnnouncement, ...announcements];
     setAnnouncements(updated);
-    localStorage.setItem('kt_announcements', JSON.stringify(updated));
+    saveAndSync('kt_announcements', updated);
     setIsAnnouncementModalOpen(false);
   };
 
@@ -147,7 +148,7 @@ const CommunicationView: React.FC<CommunicationViewProps> = ({ currentUser }) =>
     if (!confirm('确定要删除该公告吗？')) return;
     const updated = announcements.filter(a => a.id !== id);
     setAnnouncements(updated);
-    localStorage.setItem('kt_announcements', JSON.stringify(updated));
+    saveAndSync('kt_announcements', updated);
   };
 
   const togglePin = (id: string) => {
@@ -155,7 +156,7 @@ const CommunicationView: React.FC<CommunicationViewProps> = ({ currentUser }) =>
       a.id === id ? { ...a, isPinned: !a.isPinned } : a
     );
     setAnnouncements(updated);
-    localStorage.setItem('kt_announcements', JSON.stringify(updated));
+    saveAndSync('kt_announcements', updated);
   };
 
   // 按班级分组的联系人

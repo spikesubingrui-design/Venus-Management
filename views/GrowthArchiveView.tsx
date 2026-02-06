@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { User as UserType, Student, GrowthRecord, DailyHealthRecord, StudentEvaluation, EvaluationTemplate, EvaluationScore } from '../types';
 import { getProfessionalObservations } from '../services/observationService';
+import { saveAndSync } from '../services/storageService';
 
 // 豆包 API 配置
 const DOUBAO_API_URL = "https://ark.cn-beijing.volces.com/api/v3/chat/completions";
@@ -362,7 +363,7 @@ const GrowthArchiveView: React.FC<GrowthArchiveViewProps> = ({ currentUser }) =>
     
     const updated = [...filtered, evaluation];
     setEvaluations(updated);
-    localStorage.setItem('kt_student_evaluations', JSON.stringify(updated));
+    saveAndSync('kt_student_evaluations', updated);
     
     setTimeout(() => {
       setIsSaving(false);
@@ -382,7 +383,7 @@ const GrowthArchiveView: React.FC<GrowthArchiveViewProps> = ({ currentUser }) =>
     if (!confirm('确定删除这条评价记录吗？')) return;
     const updated = evaluations.filter(e => e.id !== evalId);
     setEvaluations(updated);
-    localStorage.setItem('kt_student_evaluations', JSON.stringify(updated));
+    saveAndSync('kt_student_evaluations', updated);
   };
 
   // AI润色教师评语

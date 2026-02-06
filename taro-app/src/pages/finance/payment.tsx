@@ -3,6 +3,7 @@ import { View, Text, ScrollView, Input, Picker } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import useGlobalShare from '../../hooks/useGlobalShare'
 import { uploadPayment, isSupabaseConfigured } from '../../services/cloudSyncService'
+import { uploadToAliyun, isAliyunConfigured } from '../../services/aliyunOssService'
 import { queuePaymentNotice } from '../../services/notificationService'
 import NavBar, { NavBarPlaceholder } from '../../components/NavBar'
 import './payment.scss'
@@ -130,6 +131,11 @@ export default function Payment() {
           const payments = Taro.getStorageSync('kt_payments') || []
           payments.unshift(payment)
           Taro.setStorageSync('kt_payments', payments)
+
+          // 同步到OSS
+          if (isAliyunConfigured) {
+            uploadToAliyun('kt_payments', payments).catch(() => {})
+          }
 
           // 同步到云端
           if (isSupabaseConfigured) {

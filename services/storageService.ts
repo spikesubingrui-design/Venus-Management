@@ -224,6 +224,44 @@ const PROTECTED_SYNC_KEYS: Record<string, number> = {
   'kt_staff': 20,       // 教职工至少20条
 };
 
+// 不需要同步到 OSS 的本地专用键
+const LOCAL_ONLY_KEYS = new Set([
+  'kt_user', 'kt_user_passwords', 'kt_data_imported_v7', 
+  'kt_last_sync_time', 'kt_parent_picker_info', 'kt_pref_v2',
+]);
+
+/**
+ * 通用保存并同步函数（适用于任何数据类型）
+ * 所有 View 应该用这个函数代替直接调用 localStorage.setItem
+ * 会自动触发 OSS 同步（防抖），确保数据实时同步到云端
+ */
+export function saveAndSync(key: string, data: any): void {
+  try {
+    localStorage.setItem(key, JSON.stringify(data));
+    
+    // 本地专用键不同步
+    if (LOCAL_ONLY_KEYS.has(key) || !key.startsWith('kt_')) return;
+    
+    // 数组数据的安全检查
+    if (Array.isArray(data)) {
+      const minCount = PROTECTED_SYNC_KEYS[key];
+      if (minCount && data.length < minCount) {
+        console.warn(`[Storage] ⚠️ ${key} 数据不足(${data.length}条 < ${minCount})，跳过同步`);
+        return;
+      }
+    }
+    
+    // 自动触发阿里云OSS同步（防抖，异步）
+    import('./aliyunOssService').then(({ syncToAliyun }) => {
+      syncToAliyun(key);
+    }).catch(() => {});
+    
+    console.log(`[Storage] 💾 ${key} 已保存并触发同步 (${Array.isArray(data) ? data.length + '条' : 'object'})`);
+  } catch (e) {
+    console.error(`[Storage] 保存失败 ${key}:`, e);
+  }
+}
+
 /**
  * 保存数据（自动同步到云端）
  * 1. 保存到本地 localStorage

@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { User } from '../types';
 import { hasPermission } from '../services/permissionService';
+import { saveAndSync } from '../services/storageService';
 
 interface DocumentViewProps {
   currentUser: User;
@@ -141,7 +142,7 @@ const DocumentView: React.FC<DocumentViewProps> = ({ currentUser }) => {
     };
     const updated = [...documents, newFolder];
     setDocuments(updated);
-    localStorage.setItem('kt_documents', JSON.stringify(updated));
+    saveAndSync('kt_documents', updated);
     setIsCreateFolderModal(false);
   };
 
@@ -247,7 +248,7 @@ const DocumentView: React.FC<DocumentViewProps> = ({ currentUser }) => {
       setDocuments(updated);
       
       try {
-        localStorage.setItem('kt_documents', JSON.stringify(updated));
+        saveAndSync('kt_documents', updated);
       } catch (storageError) {
         console.error('存储空间不足:', storageError);
         alert('存储空间不足，文件过大无法保存。请尝试上传较小的文件（建议小于5MB）');
@@ -306,7 +307,7 @@ const DocumentView: React.FC<DocumentViewProps> = ({ currentUser }) => {
     
     const updated = documents.filter(d => !idsToDelete.has(d.id));
     setDocuments(updated);
-    localStorage.setItem('kt_documents', JSON.stringify(updated));
+    saveAndSync('kt_documents', updated);
   };
 
   // 保存权限
@@ -324,7 +325,7 @@ const DocumentView: React.FC<DocumentViewProps> = ({ currentUser }) => {
     
     const updated = documents.map(d => d.id === selectedDocument.id ? updatedDoc : d);
     setDocuments(updated);
-    localStorage.setItem('kt_documents', JSON.stringify(updated));
+    saveAndSync('kt_documents', updated);
     setIsPermissionModal(false);
     setSelectedDocument(null);
   };
@@ -822,7 +823,7 @@ const DocumentView: React.FC<DocumentViewProps> = ({ currentUser }) => {
                     // 保存
                     const updated = [...documents, newFile];
                     setDocuments(updated);
-                    localStorage.setItem('kt_documents', JSON.stringify(updated));
+                    saveAndSync('kt_documents', updated);
                     
                     setUploadProgress(100);
                     

@@ -26,6 +26,7 @@ import {
 import { User, UserRole } from '../types';
 import OperationLogsViewer from '../components/OperationLogsViewer';
 import { checkAliyunHealth, isAliyunConfigured, initializeFromAliyun, getSyncStatus, resetCloudStudents, deleteCloudData, uploadAllToAliyun } from '../services/aliyunOssService';
+import { saveAndSync } from '../services/storageService';
 
 interface SystemManagementViewProps {
   currentUser: User;
@@ -123,7 +124,7 @@ const SystemManagementView: React.FC<SystemManagementViewProps> = ({ currentUser
     // 本地添加
     const updated = [...authorizedPhones, newAuthorizedPhone];
     setAuthorizedPhones(updated);
-    localStorage.setItem('kt_authorized_phones', JSON.stringify(updated.map(p => p.phone)));
+    saveAndSync('kt_authorized_phones', updated.map(p => p.phone));
     setNewPhone('');
     console.log('已添加授权手机号:', cleanPhone);
   };
@@ -132,14 +133,14 @@ const SystemManagementView: React.FC<SystemManagementViewProps> = ({ currentUser
     // 本地删除
     const updated = authorizedPhones.filter(p => p.phone !== phone);
     setAuthorizedPhones(updated);
-    localStorage.setItem('kt_authorized_phones', JSON.stringify(updated.map(p => p.phone)));
+    saveAndSync('kt_authorized_phones', updated.map(p => p.phone));
   };
 
   const handleDeleteUser = async (userId: string) => {
     // 本地删除
     const updated = allUsers.filter(u => u.id !== userId);
     setAllUsers(updated);
-    localStorage.setItem('kt_all_users', JSON.stringify(updated));
+    saveAndSync('kt_all_users', updated);
     
     // 同时删除密码
     const passwords = JSON.parse(localStorage.getItem('kt_user_passwords') || '{}');
@@ -190,7 +191,7 @@ const SystemManagementView: React.FC<SystemManagementViewProps> = ({ currentUser
 
     // 更新状态和本地存储
     setAuthorizedPhones([...authorizedPhones]);
-    localStorage.setItem('kt_authorized_phones', JSON.stringify(authorizedPhones.map(p => typeof p === 'string' ? p : p.phone)));
+    saveAndSync('kt_authorized_phones', authorizedPhones.map(p => typeof p === 'string' ? p : p.phone));
 
     alert(`导入完成！\n✅ 新增授权: ${addedCount} 个\n⏭️ 已跳过(已存在): ${skippedCount} 个\n📋 教职工总数: ${teachers.length} 人`);
   };

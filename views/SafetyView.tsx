@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { User } from '../types';
+import { saveAndSync } from '../services/storageService';
 import { hasPermission } from '../services/permissionService';
 import { logOperation } from '../services/storageService';
 import ConfirmUploadModal, { UploadSuccessToast } from '../components/ConfirmUploadModal';
@@ -164,7 +165,7 @@ const SafetyView: React.FC<SafetyViewProps> = ({ currentUser }) => {
     if (pendingData.type === 'visitor') {
       const updated = [pendingData.data, ...visitors];
       setVisitors(updated);
-      localStorage.setItem('kt_visitors', JSON.stringify(updated));
+      saveAndSync('kt_visitors', updated);
       
       logOperation(
         currentUser.id, currentUser.name, currentUser.role,
@@ -181,7 +182,7 @@ const SafetyView: React.FC<SafetyViewProps> = ({ currentUser }) => {
         v.id === pendingData.data.id ? { ...v, status: 'out' as const, exitTime: new Date().toISOString() } : v
       );
       setVisitors(updated);
-      localStorage.setItem('kt_visitors', JSON.stringify(updated));
+      saveAndSync('kt_visitors', updated);
       
       logOperation(
         currentUser.id, currentUser.name, currentUser.role,
@@ -195,7 +196,7 @@ const SafetyView: React.FC<SafetyViewProps> = ({ currentUser }) => {
     } else if (pendingData.type === 'fire') {
       const updated = [pendingData.data, ...fireInspections];
       setFireInspections(updated);
-      localStorage.setItem('kt_fire_inspections', JSON.stringify(updated));
+      saveAndSync('kt_fire_inspections', updated);
       
       logOperation(
         currentUser.id, currentUser.name, currentUser.role,
@@ -210,7 +211,7 @@ const SafetyView: React.FC<SafetyViewProps> = ({ currentUser }) => {
     } else if (pendingData.type === 'patrol') {
       const updated = [pendingData.data, ...patrols];
       setPatrols(updated);
-      localStorage.setItem('kt_patrols', JSON.stringify(updated));
+      saveAndSync('kt_patrols', updated);
       
       logOperation(
         currentUser.id, currentUser.name, currentUser.role,
@@ -281,7 +282,7 @@ const SafetyView: React.FC<SafetyViewProps> = ({ currentUser }) => {
     
     const updated = [newPatrol, ...patrols];
     setPatrols(updated);
-    localStorage.setItem('kt_patrols', JSON.stringify(updated));
+    saveAndSync('kt_patrols', updated);
     setIsAddPatrolModal(false);
   };
 
@@ -301,7 +302,7 @@ const SafetyView: React.FC<SafetyViewProps> = ({ currentUser }) => {
     
     const updated = [...patrolPoints, newPoint];
     setPatrolPoints(updated);
-    localStorage.setItem('kt_patrol_points', JSON.stringify(updated));
+    saveAndSync('kt_patrol_points', updated);
     setIsAddPointModal(false);
   };
 
@@ -311,7 +312,7 @@ const SafetyView: React.FC<SafetyViewProps> = ({ currentUser }) => {
       p.id === id ? { ...p, isActive: !p.isActive } : p
     );
     setPatrolPoints(updated);
-    localStorage.setItem('kt_patrol_points', JSON.stringify(updated));
+    saveAndSync('kt_patrol_points', updated);
   };
 
   return (

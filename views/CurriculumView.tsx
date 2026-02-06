@@ -8,6 +8,7 @@ import {
 import { User } from '../types';
 import { hasPermission } from '../services/permissionService';
 import { ChineseDatePicker } from '../components/ChineseDatePicker';
+import { saveAndSync } from '../services/storageService';
 
 interface CurriculumViewProps {
   currentUser: User;
@@ -107,7 +108,7 @@ const CurriculumView: React.FC<CurriculumViewProps> = ({ currentUser }) => {
   const [domainFilter, setDomainFilter] = useState<string>('all');
 
   useEffect(() => {
-    localStorage.setItem('kt_schedule', JSON.stringify(schedule));
+    saveAndSync('kt_schedule', schedule);
     localStorage.setItem('kt_theme', theme);
   }, [schedule, theme]);
   
@@ -165,7 +166,7 @@ const CurriculumView: React.FC<CurriculumViewProps> = ({ currentUser }) => {
     };
     const updated = [newPhoto, ...photos];
     setPhotos(updated);
-    localStorage.setItem('kt_album_photos', JSON.stringify(updated));
+    saveAndSync('kt_album_photos', updated);
     setIsPhotoModalOpen(false);
   };
   
@@ -191,7 +192,7 @@ const CurriculumView: React.FC<CurriculumViewProps> = ({ currentUser }) => {
     };
     const updated = [newRecord, ...observations];
     setObservations(updated);
-    localStorage.setItem('kt_observations', JSON.stringify(updated));
+    saveAndSync('kt_observations', updated);
     setIsObservationModalOpen(false);
   };
   
