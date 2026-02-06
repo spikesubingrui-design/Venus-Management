@@ -322,23 +322,28 @@ export default function Login() {
       let user = users.find(u => u.phone === phone)
 
       if (!user) {
-        // 新用户 - 必须在教职工名单或授权列表中
-        const authorizedPhonesRaw: any[] = Taro.getStorageSync('kt_authorized_phones') || []
-        const authorizedPhoneList = authorizedPhonesRaw.map((p: any) => typeof p === 'string' ? p : p.phone)
-        if (!staffInfo && authorizedPhoneList.length > 0 && !authorizedPhoneList.includes(phone)) {
-          safeToast('手机号未授权，请联系园长')
+        // 新用户 - 检查是否有密码，没有则引导注册
+        const passwords = Taro.getStorageSync('kt_user_passwords') || {}
+        if (!passwords[phone]) {
+          safeToast('请先注册并设置密码')
+          setMode('register')
           setLoading(false)
           return
         }
-
-        // 自动创建用户，使用手机号作为唯一标识（防止跨设备重复）
+        // 有密码但没有用户记录（异常情况），从教职工/授权名单创建
+        const authorizedPhonesRaw: any[] = Taro.getStorageSync('kt_authorized_phones') || []
+        const authInfo = authorizedPhonesRaw.find((p: any) => typeof p === 'object' ? p.phone === phone : p === phone)
+        let assignedClasses: string[] = staffInfo?.assignedClasses || []
+        if (typeof authInfo === 'object' && authInfo?.assignedClass && !assignedClasses.includes(authInfo.assignedClass)) {
+          assignedClasses = [...assignedClasses, authInfo.assignedClass]
+        }
         user = {
           id: `user_${phone}`,
           phone,
-          name: staffInfo?.name || `用户${phone.slice(-4)}`,
-          role: staffInfo?.role || 'TEACHER',
-          campus: '十七幼',
-          assignedClasses: staffInfo?.assignedClasses || [],
+          name: staffInfo?.name || (typeof authInfo === 'object' ? authInfo?.name : '') || `用户${phone.slice(-4)}`,
+          role: staffInfo?.role || (typeof authInfo === 'object' ? authInfo?.role : '') || 'TEACHER',
+          campus: staffInfo?.campus || (typeof authInfo === 'object' ? authInfo?.campus : '') || '十七幼',
+          assignedClasses,
         }
         users.push(user)
         Taro.setStorageSync('kt_all_users', users)
@@ -391,9 +396,13 @@ export default function Login() {
         return
       }
 
-      // 检查是否已注册
+      // 检查是否已注册且已设密码
       const users: User[] = Taro.getStorageSync('kt_all_users') || []
-      if (users.some(u => u.phone === phone)) {
+      const existingUser = users.find(u => u.phone === phone)
+      const passwords = Taro.getStorageSync('kt_user_passwords') || {}
+      const hasPassword = !!passwords[phone]
+      
+      if (existingUser && hasPassword) {
         safeToast('该手机号已注册，请直接登录')
         setMode('login')
         setLoading(false)
@@ -425,22 +434,36 @@ export default function Login() {
         assignedClasses = [...assignedClasses, authInfo.assignedClass]
       }
 
-      // 创建用户 - 使用手机号作为唯一ID防止跨设备重复
-      const newUser: User = {
-        id: `user_${phone}`,
-        phone,
-        name: staffInfo?.name || (typeof authInfo === 'object' ? authInfo?.name : '') || `用户${phone.slice(-4)}`,
-        role: staffInfo?.role || (typeof authInfo === 'object' ? authInfo?.role : '') || 'TEACHER',
-        campus: staffInfo?.campus || (typeof authInfo === 'object' ? authInfo?.campus : '') || '十七幼',
-        assignedClasses,
-        createdAt: new Date().toISOString()
+      // 创建或更新用户
+      let finalUser: User
+      if (existingUser) {
+        // 用户已存在（之前自动创建的），更新信息
+        finalUser = {
+          ...existingUser,
+          name: staffInfo?.name || (typeof authInfo === 'object' ? authInfo?.name : '') || existingUser.name,
+          role: staffInfo?.role || (typeof authInfo === 'object' ? authInfo?.role : '') || existingUser.role,
+          campus: staffInfo?.campus || (typeof authInfo === 'object' ? authInfo?.campus : '') || existingUser.campus || '十七幼',
+          assignedClasses: assignedClasses.length > 0 ? assignedClasses : (existingUser.assignedClasses || []),
+        }
+        const idx = users.findIndex(u => u.phone === phone)
+        if (idx !== -1) users[idx] = finalUser
+        Taro.setStorageSync('kt_all_users', users)
+      } else {
+        // 全新用户
+        finalUser = {
+          id: `user_${phone}`,
+          phone,
+          name: staffInfo?.name || (typeof authInfo === 'object' ? authInfo?.name : '') || `用户${phone.slice(-4)}`,
+          role: staffInfo?.role || (typeof authInfo === 'object' ? authInfo?.role : '') || 'TEACHER',
+          campus: staffInfo?.campus || (typeof authInfo === 'object' ? authInfo?.campus : '') || '十七幼',
+          assignedClasses,
+          createdAt: new Date().toISOString()
+        }
+        users.push(finalUser)
+        Taro.setStorageSync('kt_all_users', users)
       }
 
-      users.push(newUser)
-      Taro.setStorageSync('kt_all_users', users)
-
       // 保存密码（简单哈希）
-      const passwords = Taro.getStorageSync('kt_user_passwords') || {}
       const hashedPwd = btoa(encodeURIComponent(password + '_venus_salt_' + phone))
       passwords[phone] = hashedPwd
       Taro.setStorageSync('kt_user_passwords', passwords)
@@ -456,7 +479,7 @@ export default function Login() {
 
       safeToast('注册成功', 'success')
       // 登录成功
-      await onLoginSuccess(newUser)
+      await onLoginSuccess(finalUser)
       
     } catch (err) {
       console.error('[Register] 注册异常:', err)
