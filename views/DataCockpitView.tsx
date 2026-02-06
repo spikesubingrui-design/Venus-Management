@@ -41,16 +41,27 @@ const DataCockpitView: React.FC<DataCockpitViewProps> = ({ currentUser, onNaviga
     return () => clearInterval(interval);
   }, []);
 
+  // 去重函数
+  const dedup = (arr: any[]) => {
+    const seen = new Map();
+    return arr.filter((item: any) => {
+      const key = item.name && item.class ? `${item.name}_${item.class}` : item.id;
+      if (seen.has(key)) return false;
+      seen.set(key, true);
+      return true;
+    });
+  };
+
   const loadAllData = () => {
     setIsLoading(true);
     
-    // 加载学生
+    // 加载学生（带去重）
     const savedStudents = localStorage.getItem('kt_students');
-    if (savedStudents) setStudents(JSON.parse(savedStudents));
+    if (savedStudents) setStudents(dedup(JSON.parse(savedStudents)));
     
-    // 加载教师
+    // 加载教师（带去重）
     const savedTeachers = localStorage.getItem('kt_teachers');
-    if (savedTeachers) setTeachers(JSON.parse(savedTeachers));
+    if (savedTeachers) setTeachers(dedup(JSON.parse(savedTeachers)));
     
     // 加载退费记录
     setRefunds(getRefundRecords({}));

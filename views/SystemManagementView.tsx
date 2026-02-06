@@ -32,11 +32,16 @@ interface SystemManagementViewProps {
   currentUser: User;
 }
 
-// 授权手机号数据类型
+// 授权手机号数据类型（包含完整教职工信息）
 interface AuthorizedPhone {
   phone: string;
+  name?: string;
+  gender?: string;
   campus?: string;
-  role?: string;
+  role?: string;        // 系统角色 TEACHER/ADMIN 等
+  position?: string;    // 职务名称（园长、班长、配班等）
+  assignedClass?: string; // 分配班级
+  department?: string;  // 部门
   is_used?: boolean;
   created_at?: string;
 }
@@ -44,8 +49,13 @@ interface AuthorizedPhone {
 const SystemManagementView: React.FC<SystemManagementViewProps> = ({ currentUser }) => {
   const [authorizedPhones, setAuthorizedPhones] = useState<AuthorizedPhone[]>([]);
   const [newPhone, setNewPhone] = useState('');
+  const [newPhoneName, setNewPhoneName] = useState('');
+  const [newPhoneGender, setNewPhoneGender] = useState('女');
   const [newPhoneCampus, setNewPhoneCampus] = useState('总园');
   const [newPhoneRole, setNewPhoneRole] = useState('TEACHER');
+  const [newPhonePosition, setNewPhonePosition] = useState('');
+  const [newPhoneClass, setNewPhoneClass] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
   const [allUsers, setAllUsers] = useState<User[]>([]);
   const [activeTab, setActiveTab] = useState<'phones' | 'users' | 'logs' | 'cloud'>('phones');
   
@@ -65,10 +75,33 @@ const SystemManagementView: React.FC<SystemManagementViewProps> = ({ currentUser
     const phones = JSON.parse(localStorage.getItem('kt_authorized_phones') || '[]');
     const users = JSON.parse(localStorage.getItem('kt_all_users') || '[]');
     
-    // 处理手机号格式
+    // 处理手机号格式：兼容旧格式（纯字符串）和新格式（对象）
     if (phones.length > 0) {
       if (typeof phones[0] === 'string') {
-        setAuthorizedPhones(phones.map((p: string) => ({ phone: p })));
+        // 旧格式：尝试从教职工列表关联信息
+        const teachers = JSON.parse(localStorage.getItem('kt_teachers') || '[]');
+        const ossStaff = JSON.parse(localStorage.getItem('kt_staff') || '[]');
+        const allStaff = [...teachers, ...ossStaff];
+        const staffMap = new Map(allStaff.filter((t: any) => t.phone).map((t: any) => [t.phone.replace(/\D/g, ''), t]));
+        
+        const enriched = phones.map((p: string) => {
+          const cleanPhone = p.replace(/\D/g, '');
+          const teacher = staffMap.get(cleanPhone);
+          if (teacher) {
+            return {
+              phone: cleanPhone,
+              name: teacher.name || '',
+              gender: teacher.gender || '',
+              campus: teacher.campus || '',
+              role: teacher.role || 'TEACHER',
+              position: teacher.position || teacher.role || '',
+              assignedClass: teacher.assignedClass || (Array.isArray(teacher.assignedClasses) ? teacher.assignedClasses[0] : '') || teacher.class || '',
+              is_used: users.some((u: any) => u.phone === cleanPhone),
+            };
+          }
+          return { phone: cleanPhone };
+        });
+        setAuthorizedPhones(enriched);
       } else {
         setAuthorizedPhones(phones);
       }
@@ -115,8 +148,12 @@ const SystemManagementView: React.FC<SystemManagementViewProps> = ({ currentUser
 
     const newAuthorizedPhone: AuthorizedPhone = {
       phone: cleanPhone,
+      name: newPhoneName,
+      gender: newPhoneGender,
       campus: newPhoneCampus,
       role: newPhoneRole,
+      position: newPhonePosition,
+      assignedClass: newPhoneClass,
       is_used: false,
       created_at: new Date().toISOString()
     };
@@ -124,16 +161,19 @@ const SystemManagementView: React.FC<SystemManagementViewProps> = ({ currentUser
     // 本地添加
     const updated = [...authorizedPhones, newAuthorizedPhone];
     setAuthorizedPhones(updated);
-    saveAndSync('kt_authorized_phones', updated.map(p => p.phone));
+    saveAndSync('kt_authorized_phones', updated);
     setNewPhone('');
-    console.log('已添加授权手机号:', cleanPhone);
+    setNewPhoneName('');
+    setNewPhonePosition('');
+    setNewPhoneClass('');
+    console.log('已添加授权:', cleanPhone, newPhoneName);
   };
 
   const handleDeletePhone = async (phone: string) => {
     // 本地删除
     const updated = authorizedPhones.filter(p => p.phone !== phone);
     setAuthorizedPhones(updated);
-    saveAndSync('kt_authorized_phones', updated.map(p => p.phone));
+    saveAndSync('kt_authorized_phones', updated);
   };
 
   const handleDeleteUser = async (userId: string) => {
@@ -151,9 +191,12 @@ const SystemManagementView: React.FC<SystemManagementViewProps> = ({ currentUser
     }
   };
 
-  // 从教职工列表导入手机号到授权名单
+  // 从教职工列表导入手机号到授权名单（带完整信息）
   const handleImportTeacherPhones = async () => {
-    const teachers = JSON.parse(localStorage.getItem('kt_teachers') || '[]');
+    // 同时从 kt_teachers（网页格式）和 kt_staff（OSS格式）加载，取最全的
+    const webTeachers = JSON.parse(localStorage.getItem('kt_teachers') || '[]');
+    const ossStaff = JSON.parse(localStorage.getItem('kt_staff') || '[]');
+    const teachers = webTeachers.length >= ossStaff.length ? webTeachers : ossStaff;
     
     if (teachers.length === 0) {
       alert('暂无教职工数据，请先在"教职工管理"中添加教职工');
@@ -161,8 +204,9 @@ const SystemManagementView: React.FC<SystemManagementViewProps> = ({ currentUser
     }
 
     let addedCount = 0;
-    let skippedCount = 0;
-    const existingPhones = new Set(authorizedPhones.map(p => typeof p === 'string' ? p : p.phone));
+    let updatedCount = 0;
+    const existingMap = new Map(authorizedPhones.map(p => [typeof p === 'string' ? p : p.phone, p]));
+    const newList: AuthorizedPhone[] = [];
 
     for (const teacher of teachers) {
       if (!teacher.phone) continue;
@@ -170,30 +214,41 @@ const SystemManagementView: React.FC<SystemManagementViewProps> = ({ currentUser
       const cleanPhone = teacher.phone.replace(/\D/g, '');
       if (cleanPhone.length !== 11) continue;
       
-      // 检查是否已存在
-      if (existingPhones.has(cleanPhone)) {
-        skippedCount++;
-        continue;
-      }
-
-      const newAuthorizedPhone: AuthorizedPhone = {
+      const enrichedPhone: AuthorizedPhone = {
         phone: cleanPhone,
-        campus: teacher.campus || currentUser.campus || '总园',
-        role: 'TEACHER',
-        is_used: false,
+        name: teacher.name || '',
+        gender: teacher.gender || teacher._ossGender || '',
+        campus: teacher.campus || teacher._ossCampus || currentUser.campus || '总园',
+        role: teacher._ossRole || teacher.role || 'TEACHER',
+        position: teacher._ossPosition || teacher.position || teacher.role || '',
+        assignedClass: teacher.assignedClass || (Array.isArray(teacher.assignedClasses) ? teacher.assignedClasses[0] : '') || teacher.class || teacher._ossClass || '',
+        department: teacher.department || '',
+        is_used: allUsers.some(u => u.phone === cleanPhone),
         created_at: new Date().toISOString()
       };
 
-      authorizedPhones.push(newAuthorizedPhone);
-      existingPhones.add(cleanPhone);
-      addedCount++;
+      if (existingMap.has(cleanPhone)) {
+        // 更新已有记录的信息
+        updatedCount++;
+      } else {
+        addedCount++;
+      }
+      newList.push(enrichedPhone);
+      existingMap.set(cleanPhone, enrichedPhone);
     }
 
-    // 更新状态和本地存储
-    setAuthorizedPhones([...authorizedPhones]);
-    saveAndSync('kt_authorized_phones', authorizedPhones.map(p => typeof p === 'string' ? p : p.phone));
+    // 保留不在教职工列表中的手动添加的号码
+    const teacherPhones = new Set(newList.map(p => p.phone));
+    const manualPhones = authorizedPhones.filter(p => {
+      const phone = typeof p === 'string' ? p : p.phone;
+      return !teacherPhones.has(phone);
+    });
 
-    alert(`导入完成！\n✅ 新增授权: ${addedCount} 个\n⏭️ 已跳过(已存在): ${skippedCount} 个\n📋 教职工总数: ${teachers.length} 人`);
+    const finalList = [...newList, ...manualPhones];
+    setAuthorizedPhones(finalList);
+    saveAndSync('kt_authorized_phones', finalList);
+
+    alert(`导入完成！\n✅ 新增授权: ${addedCount} 人\n🔄 更新信息: ${updatedCount} 人\n📋 教职工总数: ${teachers.length} 人\n📌 授权总数: ${finalList.length} 人`);
   };
 
   return (
@@ -267,72 +322,189 @@ const SystemManagementView: React.FC<SystemManagementViewProps> = ({ currentUser
               </div>
               
               <div className="p-10">
-                <form onSubmit={handleAddPhone} className="flex gap-4 mb-10">
-                  <div className="relative flex-1">
-                    <PhoneCall className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300" />
+                {/* 搜索栏 */}
+                <div className="mb-6">
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="搜索姓名、手机号、园区、班级..."
+                    className="w-full px-6 py-3 bg-slate-50 border-2 border-slate-100 rounded-2xl focus:ring-4 focus:ring-amber-500/10 focus:bg-white focus:border-amber-500 outline-none transition-all text-sm"
+                  />
+                </div>
+
+                {/* 手动添加表单 */}
+                <form onSubmit={handleAddPhone} className="mb-8 p-6 bg-slate-50 rounded-2xl border border-slate-100">
+                  <p className="text-xs font-bold text-slate-500 mb-4">手动添加授权</p>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
                     <input 
-                      type="tel"
-                      value={newPhone}
-                      onChange={(e) => setNewPhone(e.target.value)}
-                      placeholder="录入手机号授权..."
-                      className="w-full pl-14 pr-6 py-5 bg-slate-50 border-2 border-slate-100 rounded-3xl focus:ring-4 focus:ring-amber-500/10 focus:bg-white focus:border-amber-500 outline-none transition-all font-bold text-lg"
+                      type="text"
+                      value={newPhoneName}
+                      onChange={(e) => setNewPhoneName(e.target.value)}
+                      placeholder="姓名"
+                      className="px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-none"
                     />
+                    <div className="relative">
+                      <PhoneCall className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300" />
+                      <input 
+                        type="tel"
+                        value={newPhone}
+                        onChange={(e) => setNewPhone(e.target.value)}
+                        placeholder="手机号 *"
+                        className="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-none"
+                        required
+                      />
+                    </div>
+                    <select 
+                      value={newPhoneGender}
+                      onChange={(e) => setNewPhoneGender(e.target.value)}
+                      className="px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-none"
+                    >
+                      <option value="女">女</option>
+                      <option value="男">男</option>
+                    </select>
+                    <select 
+                      value={newPhoneCampus}
+                      onChange={(e) => setNewPhoneCampus(e.target.value)}
+                      className="px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-none"
+                    >
+                      <option value="总园">总园（集团总部）</option>
+                      <option value="南江">南江园</option>
+                      <option value="高新">高新园</option>
+                      <option value="新市花园">新市花园园</option>
+                      <option value="创越">创越园</option>
+                      <option value="七幼">金星第七幼儿园</option>
+                      <option value="八幼">金星第八幼儿园</option>
+                      <option value="九幼">金星第九幼儿园</option>
+                      <option value="十幼">金星第十幼儿园</option>
+                      <option value="十二幼">金星第十二幼儿园</option>
+                      <option value="十七幼">金星第十七幼儿园</option>
+                    </select>
                   </div>
-                  <select 
-                    value={newPhoneCampus}
-                    onChange={(e) => setNewPhoneCampus(e.target.value)}
-                    className="px-6 py-5 bg-slate-50 border-2 border-slate-100 rounded-3xl font-bold text-slate-700 focus:ring-4 focus:ring-amber-500/10 focus:bg-white focus:border-amber-500 outline-none transition-all"
-                  >
-                    <option value="总园">总园（集团总部）</option>
-                    <option value="南江">南江园</option>
-                    <option value="高新">高新园</option>
-                    <option value="新市花园">新市花园园</option>
-                    <option value="创越">创越园</option>
-                    <option value="七幼">金星第七幼儿园</option>
-                    <option value="八幼">金星第八幼儿园</option>
-                    <option value="九幼">金星第九幼儿园</option>
-                    <option value="十幼">金星第十幼儿园</option>
-                    <option value="十二幼">金星第十二幼儿园</option>
-                    <option value="十七幼">金星第十七幼儿园</option>
-                  </select>
-                  <button type="submit" className="bg-amber-600 text-white px-10 rounded-3xl font-black text-sm hover:bg-amber-700 shadow-xl shadow-amber-200 transition-all active:scale-95 flex items-center gap-3">
-                    <UserPlus className="w-5 h-5" />
-                    执行授权
-                  </button>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    <input 
+                      type="text"
+                      value={newPhonePosition}
+                      onChange={(e) => setNewPhonePosition(e.target.value)}
+                      placeholder="职务（如：园长、班长）"
+                      className="px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-none"
+                    />
+                    <input 
+                      type="text"
+                      value={newPhoneClass}
+                      onChange={(e) => setNewPhoneClass(e.target.value)}
+                      placeholder="班级（如：大一班）"
+                      className="px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-none"
+                    />
+                    <select 
+                      value={newPhoneRole}
+                      onChange={(e) => setNewPhoneRole(e.target.value)}
+                      className="px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-none"
+                    >
+                      <option value="TEACHER">教师</option>
+                      <option value="ADMIN">管理员</option>
+                      <option value="HEALTH_TEACHER">保健医生</option>
+                      <option value="KITCHEN">厨房</option>
+                      <option value="SECURITY">安保</option>
+                      <option value="PARENT">家长</option>
+                    </select>
+                    <button type="submit" className="bg-amber-600 text-white rounded-xl font-bold text-sm hover:bg-amber-700 shadow-lg shadow-amber-200 transition-all active:scale-95 flex items-center justify-center gap-2">
+                      <UserPlus className="w-4 h-4" />
+                      添加授权
+                    </button>
+                  </div>
                 </form>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {authorizedPhones.map((p) => {
-                    const phoneNumber = typeof p === 'string' ? p : p.phone;
-                    const phoneCampus = typeof p === 'string' ? '' : p.campus;
-                    const phoneRole = typeof p === 'string' ? '' : p.role;
-                    const isUsed = typeof p === 'string' ? false : p.is_used;
-                    const isRegistered = allUsers.some(u => u.phone === phoneNumber) || isUsed;
-                    
-                    return (
-                      <div key={phoneNumber} className="flex items-center justify-between p-6 bg-white rounded-3xl border-2 border-slate-50 group hover:border-amber-500 hover:shadow-xl hover:shadow-amber-500/5 transition-all">
-                        <div className="flex items-center gap-4">
-                          <div className={`p-3 rounded-2xl ${isRegistered ? 'bg-emerald-500 text-white' : 'bg-slate-100 text-slate-400'}`}>
-                            <PhoneCall className="w-5 h-5" />
-                          </div>
-                          <div>
-                            <p className="font-black text-slate-800 tracking-wider text-base">{phoneNumber}</p>
-                            <div className="flex items-center gap-2 mt-1">
-                              {phoneCampus && (
-                                <span className="text-[9px] font-bold px-2 py-0.5 bg-blue-50 text-blue-600 rounded-full">{phoneCampus}</span>
-                              )}
-                              <span className="text-[9px] font-black uppercase tracking-widest">
-                                {isRegistered ? <span className="text-emerald-500">已激活注册</span> : <span className="text-slate-400">等待准入</span>}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                        <button onClick={() => handleDeletePhone(phoneNumber)} className="p-3 text-slate-200 hover:text-rose-500 transition-colors opacity-0 group-hover:opacity-100">
-                          <Trash2 className="w-5 h-5" />
-                        </button>
-                      </div>
-                    );
-                  })}
+                {/* 授权名单表格 */}
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="text-left text-[10px] font-black text-slate-400 uppercase tracking-[0.15em] border-b-2 border-slate-100">
+                        <th className="pb-4 pl-4">状态</th>
+                        <th className="pb-4">姓名</th>
+                        <th className="pb-4">性别</th>
+                        <th className="pb-4">手机号</th>
+                        <th className="pb-4">园区</th>
+                        <th className="pb-4">职务</th>
+                        <th className="pb-4">班级</th>
+                        <th className="pb-4">角色</th>
+                        <th className="pb-4 text-right pr-4">操作</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-50">
+                      {authorizedPhones
+                        .filter(p => {
+                          if (!searchQuery) return true;
+                          const q = searchQuery.toLowerCase();
+                          const phone = typeof p === 'string' ? p : p.phone;
+                          const name = typeof p === 'string' ? '' : (p.name || '');
+                          const campus = typeof p === 'string' ? '' : (p.campus || '');
+                          const cls = typeof p === 'string' ? '' : (p.assignedClass || '');
+                          const pos = typeof p === 'string' ? '' : (p.position || '');
+                          return phone.includes(q) || name.includes(q) || campus.includes(q) || cls.includes(q) || pos.includes(q);
+                        })
+                        .map((p) => {
+                          const phoneNumber = typeof p === 'string' ? p : p.phone;
+                          const name = typeof p === 'string' ? '' : (p.name || '');
+                          const gender = typeof p === 'string' ? '' : (p.gender || '');
+                          const campus = typeof p === 'string' ? '' : (p.campus || '');
+                          const position = typeof p === 'string' ? '' : (p.position || '');
+                          const assignedClass = typeof p === 'string' ? '' : (p.assignedClass || '');
+                          const role = typeof p === 'string' ? '' : (p.role || '');
+                          const isUsed = typeof p === 'string' ? false : p.is_used;
+                          const isRegistered = allUsers.some(u => u.phone === phoneNumber) || isUsed;
+                          
+                          const roleLabel: Record<string, string> = {
+                            'TEACHER': '教师', 'ADMIN': '管理员', 'HEALTH_TEACHER': '保健医生',
+                            'KITCHEN': '厨房', 'SECURITY': '安保', 'PARENT': '家长',
+                            'SUPER_ADMIN': '超级管理员'
+                          };
+                          
+                          return (
+                            <tr key={phoneNumber} className="group hover:bg-amber-50/50 transition-colors">
+                              <td className="py-4 pl-4">
+                                <div className={`w-3 h-3 rounded-full ${isRegistered ? 'bg-emerald-500' : 'bg-slate-200'}`} 
+                                  title={isRegistered ? '已激活' : '等待准入'} />
+                              </td>
+                              <td className="py-4">
+                                <span className="font-bold text-slate-800 text-sm">{name || <span className="text-slate-300">-</span>}</span>
+                              </td>
+                              <td className="py-4">
+                                {gender ? (
+                                  <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${gender === '男' ? 'bg-blue-50 text-blue-600' : 'bg-pink-50 text-pink-600'}`}>{gender}</span>
+                                ) : <span className="text-slate-300">-</span>}
+                              </td>
+                              <td className="py-4">
+                                <span className="font-mono font-bold text-slate-700 text-sm tracking-wider">{phoneNumber}</span>
+                              </td>
+                              <td className="py-4">
+                                {campus ? (
+                                  <span className="text-xs font-bold px-2 py-0.5 bg-indigo-50 text-indigo-600 rounded-full">{campus}</span>
+                                ) : <span className="text-slate-300">-</span>}
+                              </td>
+                              <td className="py-4">
+                                {position ? (
+                                  <span className="text-xs font-bold text-slate-600">{position}</span>
+                                ) : <span className="text-slate-300">-</span>}
+                              </td>
+                              <td className="py-4">
+                                {assignedClass ? (
+                                  <span className="text-xs font-bold px-2 py-0.5 bg-amber-50 text-amber-700 rounded-full">{assignedClass}</span>
+                                ) : <span className="text-slate-300">-</span>}
+                              </td>
+                              <td className="py-4">
+                                <span className="text-xs font-bold text-slate-500">{roleLabel[role] || role || '-'}</span>
+                              </td>
+                              <td className="py-4 text-right pr-4">
+                                <button onClick={() => handleDeletePhone(phoneNumber)} className="p-2 text-slate-200 hover:text-rose-500 transition-colors opacity-0 group-hover:opacity-100">
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                    </tbody>
+                  </table>
                 </div>
               </div>
             </div>

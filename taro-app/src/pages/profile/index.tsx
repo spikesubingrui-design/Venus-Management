@@ -44,8 +44,9 @@ export default function Profile() {
   // 管理员功能状态
   const [userIsAdmin, setUserIsAdmin] = useState(false)
   const [showPhoneModal, setShowPhoneModal] = useState(false)
-  const [authorizedPhones, setAuthorizedPhones] = useState<string[]>([])
+  const [authorizedPhones, setAuthorizedPhones] = useState<any[]>([])
   const [newPhone, setNewPhone] = useState('')
+  const [phoneSearchQuery, setPhoneSearchQuery] = useState('')
 
   useEffect(() => {
     loadUser()
@@ -63,10 +64,78 @@ export default function Profile() {
     }
   }
   
-  // 加载授权手机号列表
+  // 工具函数：提取手机号
+  const getPhone = (p: any) => typeof p === 'string' ? p : p.phone
+  const getName = (p: any) => typeof p === 'string' ? '' : (p.name || '')
+  const getCampus = (p: any) => typeof p === 'string' ? '' : (p.campus || '')
+  const getPosition = (p: any) => typeof p === 'string' ? '' : (p.position || '')
+  const getClass = (p: any) => typeof p === 'string' ? '' : (p.assignedClass || '')
+  const getGender = (p: any) => typeof p === 'string' ? '' : (p.gender || '')
+
+  // 加载授权手机号列表（兼容新旧格式）
   const loadAuthorizedPhones = () => {
-    const phones = Taro.getStorageSync('kt_authorized_phones') || []
-    setAuthorizedPhones(phones)
+    const rawPhones = Taro.getStorageSync('kt_authorized_phones') || []
+    if (rawPhones.length > 0 && typeof rawPhones[0] === 'string') {
+      // 旧格式：尝试从教职工列表关联信息
+      const staff = Taro.getStorageSync('kt_staff') || []
+      const staffMap = new Map(staff.filter((s: any) => s.phone).map((s: any) => [s.phone.replace(/\D/g, ''), s]))
+      const enriched = rawPhones.map((p: string) => {
+        const clean = p.replace(/\D/g, '')
+        const s: any = staffMap.get(clean)
+        if (s) {
+          return { phone: clean, name: s.name || '', gender: s.gender || '', campus: s.campus || '', position: s.position || s.role || '', assignedClass: s.class || '' }
+        }
+        return { phone: clean }
+      })
+      setAuthorizedPhones(enriched)
+    } else {
+      setAuthorizedPhones(rawPhones)
+    }
+  }
+  
+  // 从教职工导入到授权名单（与网页版一致）
+  const handleImportStaff = async () => {
+    const staff = Taro.getStorageSync('kt_staff') || []
+    const teachers = Taro.getStorageSync('kt_teachers') || []
+    const allStaff = staff.length >= teachers.length ? staff : teachers
+    
+    if (allStaff.length === 0) {
+      Taro.showToast({ title: '暂无教职工数据', icon: 'none' })
+      return
+    }
+    
+    const existingPhones = new Set(authorizedPhones.map((p: any) => getPhone(p)))
+    let addedCount = 0
+    const newList: any[] = [...authorizedPhones]
+    
+    for (const s of allStaff) {
+      if (!s.phone) continue
+      const clean = s.phone.replace(/\D/g, '')
+      if (clean.length !== 11 || existingPhones.has(clean)) continue
+      
+      newList.push({
+        phone: clean,
+        name: s.name || '',
+        gender: s.gender || '',
+        campus: s.campus || '',
+        role: s.role || 'TEACHER',
+        position: s.position || s.role || '',
+        assignedClass: Array.isArray(s.assignedClasses) ? s.assignedClasses[0] : (s.class || ''),
+        is_used: false,
+        created_at: new Date().toISOString()
+      })
+      existingPhones.add(clean)
+      addedCount++
+    }
+    
+    Taro.setStorageSync('kt_authorized_phones', newList)
+    setAuthorizedPhones(newList)
+    
+    if (isAliyunConfigured) {
+      uploadAuthorizedPhones()
+    }
+    
+    Taro.showToast({ title: `导入 ${addedCount} 人`, icon: 'success' })
   }
   
   // 添加授权手机号
@@ -79,12 +148,13 @@ export default function Profile() {
       Taro.showToast({ title: '请输入11位手机号', icon: 'none' })
       return
     }
-    if (authorizedPhones.includes(newPhone)) {
+    if (authorizedPhones.some((p: any) => getPhone(p) === newPhone)) {
       Taro.showToast({ title: '该手机号已授权', icon: 'none' })
       return
     }
     
-    const updated = [...authorizedPhones, newPhone]
+    const newEntry = { phone: newPhone, name: '', campus: '', role: 'TEACHER', created_at: new Date().toISOString() }
+    const updated = [...authorizedPhones, newEntry]
     Taro.setStorageSync('kt_authorized_phones', updated)
     setAuthorizedPhones(updated)
     setNewPhone('')
@@ -103,12 +173,14 @@ export default function Profile() {
   
   // 删除授权手机号
   const handleRemovePhone = (phone: string) => {
+    const entry = authorizedPhones.find((p: any) => getPhone(p) === phone)
+    const displayName = entry ? (getName(entry) ? `${getName(entry)}(${phone})` : phone) : phone
     Taro.showModal({
       title: '确认删除',
-      content: `确定取消 ${phone} 的注册授权吗？`,
+      content: `确定取消 ${displayName} 的注册授权吗？`,
       success: (res) => {
         if (res.confirm) {
-          const updated = authorizedPhones.filter(p => p !== phone)
+          const updated = authorizedPhones.filter((p: any) => getPhone(p) !== phone)
           Taro.setStorageSync('kt_authorized_phones', updated)
           setAuthorizedPhones(updated)
           
@@ -415,12 +487,17 @@ export default function Profile() {
           <View className='phone-modal-mask' onClick={() => setShowPhoneModal(false)} />
           <View className='phone-modal-box'>
             <View className='phone-modal-header'>
-              <Text className='phone-modal-title'>📱 授权手机号管理</Text>
+              <Text className='phone-modal-title'>📱 授权名单管理</Text>
               <Text className='phone-modal-close' onClick={() => setShowPhoneModal(false)}>✕</Text>
             </View>
             
             <View className='phone-modal-body'>
-              <Text className='phone-hint'>只有授权的手机号才能注册账号</Text>
+              <Text className='phone-hint'>只有授权名单内的手机号才能注册，共 {authorizedPhones.length} 人</Text>
+              
+              {/* 操作按钮 */}
+              <View className='phone-add-row'>
+                <Text className='phone-import-btn' onClick={handleImportStaff}>从教职工导入</Text>
+              </View>
               
               {/* 添加新手机号 */}
               <View className='phone-add-row'>
@@ -435,20 +512,56 @@ export default function Profile() {
                 <Text className='phone-add-btn' onClick={handleAddPhone}>添加</Text>
               </View>
               
-              {/* 手机号列表 */}
+              {/* 搜索 */}
+              <View className='phone-add-row'>
+                <Input
+                  className='phone-input'
+                  type='text'
+                  placeholder='搜索姓名/手机号/园区...'
+                  value={phoneSearchQuery}
+                  onInput={(e) => setPhoneSearchQuery(e.detail.value)}
+                />
+              </View>
+              
+              {/* 授权名单列表 */}
               <ScrollView className='phone-list' scrollY>
                 {authorizedPhones.length === 0 ? (
                   <View className='phone-empty'>
-                    <Text>暂无授权手机号</Text>
-                    <Text className='phone-empty-hint'>添加手机号后，该号码可注册</Text>
+                    <Text>暂无授权名单</Text>
+                    <Text className='phone-empty-hint'>点击"从教职工导入"批量添加</Text>
                   </View>
                 ) : (
-                  authorizedPhones.map(phone => (
-                    <View key={phone} className='phone-item'>
-                      <Text className='phone-number'>{phone}</Text>
-                      <Text className='phone-delete' onClick={() => handleRemovePhone(phone)}>删除</Text>
-                    </View>
-                  ))
+                  authorizedPhones
+                    .filter((p: any) => {
+                      if (!phoneSearchQuery) return true
+                      const q = phoneSearchQuery.toLowerCase()
+                      return getPhone(p).includes(q) || getName(p).includes(q) || getCampus(p).includes(q) || getClass(p).includes(q)
+                    })
+                    .map((p: any) => {
+                      const phone = getPhone(p)
+                      const name = getName(p)
+                      const campus = getCampus(p)
+                      const position = getPosition(p)
+                      const cls = getClass(p)
+                      const gender = getGender(p)
+                      return (
+                        <View key={phone} className='phone-item'>
+                          <View className='phone-info'>
+                            <View className='phone-name-row'>
+                              <Text className='phone-person-name'>{name || '未填写'}</Text>
+                              {gender && <Text className={`phone-gender ${gender === '男' ? 'male' : 'female'}`}>{gender}</Text>}
+                            </View>
+                            <Text className='phone-number'>{phone}</Text>
+                            <View className='phone-tags'>
+                              {campus && <Text className='phone-tag campus'>{campus}</Text>}
+                              {position && <Text className='phone-tag position'>{position}</Text>}
+                              {cls && <Text className='phone-tag cls'>{cls}</Text>}
+                            </View>
+                          </View>
+                          <Text className='phone-delete' onClick={() => handleRemovePhone(phone)}>删除</Text>
+                        </View>
+                      )
+                    })
                 )}
               </ScrollView>
             </View>

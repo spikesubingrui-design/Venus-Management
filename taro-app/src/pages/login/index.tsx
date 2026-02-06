@@ -323,8 +323,9 @@ export default function Login() {
 
       if (!user) {
         // 新用户 - 必须在教职工名单或授权列表中
-        const authorizedPhones: string[] = Taro.getStorageSync('kt_authorized_phones') || []
-        if (!staffInfo && authorizedPhones.length > 0 && !authorizedPhones.includes(phone)) {
+        const authorizedPhonesRaw: any[] = Taro.getStorageSync('kt_authorized_phones') || []
+        const authorizedPhoneList = authorizedPhonesRaw.map((p: any) => typeof p === 'string' ? p : p.phone)
+        if (!staffInfo && authorizedPhoneList.length > 0 && !authorizedPhoneList.includes(phone)) {
           safeToast('手机号未授权，请联系园长')
           setLoading(false)
           return
@@ -396,9 +397,10 @@ export default function Login() {
       const staffInfo = staffList.find((s: any) => s.phone === phone)
 
       if (!staffInfo) {
-        // 检查授权手机号列表
-        const authorizedPhones: string[] = Taro.getStorageSync('kt_authorized_phones') || []
-        if (authorizedPhones.length > 0 && !authorizedPhones.includes(phone)) {
+        // 检查授权手机号列表（兼容纯字符串和对象格式）
+        const authorizedPhonesRaw: any[] = Taro.getStorageSync('kt_authorized_phones') || []
+        const authorizedPhoneList = authorizedPhonesRaw.map((p: any) => typeof p === 'string' ? p : p.phone)
+        if (authorizedPhoneList.length > 0 && !authorizedPhoneList.includes(phone)) {
           safeToast('未在教职工名单中，请联系园长添加')
           setLoading(false)
           return
@@ -481,9 +483,10 @@ export default function Login() {
       let user = users.find(u => u.phone === wxPhone)
 
       if (!user) {
-        // 检查授权
-        const authorizedPhones: string[] = Taro.getStorageSync('kt_authorized_phones') || []
-        if (!staffInfo && authorizedPhones.length > 0 && !authorizedPhones.includes(wxPhone)) {
+        // 检查授权（兼容纯字符串和对象格式）
+        const authorizedPhonesRaw: any[] = Taro.getStorageSync('kt_authorized_phones') || []
+        const authorizedPhoneList = authorizedPhonesRaw.map((p: any) => typeof p === 'string' ? p : p.phone)
+        if (!staffInfo && authorizedPhoneList.length > 0 && !authorizedPhoneList.includes(wxPhone)) {
           Taro.hideLoading()
           safeToast('手机号未授权，请联系园长')
           setLoading(false)
