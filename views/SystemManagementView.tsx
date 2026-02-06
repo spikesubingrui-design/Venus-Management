@@ -59,6 +59,10 @@ const SystemManagementView: React.FC<SystemManagementViewProps> = ({ currentUser
   const [allUsers, setAllUsers] = useState<User[]>([]);
   const [activeTab, setActiveTab] = useState<'phones' | 'users' | 'logs' | 'cloud'>('phones');
   
+  // 动态班级和职务列表（从实际数据中读取）
+  const [classList, setClassList] = useState<string[]>([]);
+  const [positionList, setPositionList] = useState<string[]>([]);
+  
   // 云同步状态
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncProgress, setSyncProgress] = useState({ current: 0, total: 0, key: '' });
@@ -67,7 +71,48 @@ const SystemManagementView: React.FC<SystemManagementViewProps> = ({ currentUser
 
   useEffect(() => {
     loadData();
+    loadClassesAndPositions();
   }, []);
+
+  // 从学生和教职工数据中动态提取班级和职务列表
+  const loadClassesAndPositions = () => {
+    const students = JSON.parse(localStorage.getItem('kt_students') || '[]');
+    const teachers = JSON.parse(localStorage.getItem('kt_teachers') || '[]');
+    const ossStaff = JSON.parse(localStorage.getItem('kt_staff') || '[]');
+    
+    const classSet = new Set<string>();
+    students.forEach((s: any) => { if (s.class) classSet.add(s.class); });
+    teachers.forEach((t: any) => { 
+      if (t.assignedClass) classSet.add(t.assignedClass);
+      if (t.class) classSet.add(t.class);
+    });
+    ossStaff.forEach((s: any) => { 
+      if (s.class) classSet.add(s.class);
+      if (Array.isArray(s.assignedClasses)) s.assignedClasses.forEach((c: string) => classSet.add(c));
+    });
+    
+    const classOrder = (name: string) => {
+      if (name.includes('悦芽') || name.includes('托')) return 1;
+      if (name.includes('花开') || name.includes('小')) return 2;
+      if (name.includes('书田') || name.includes('中')) return 3;
+      if (name.includes('星语') || name.includes('大')) return 4;
+      return 5;
+    };
+    const sortedClasses = Array.from(classSet).filter(Boolean).sort((a, b) => {
+      const orderDiff = classOrder(a) - classOrder(b);
+      return orderDiff !== 0 ? orderDiff : a.localeCompare(b, 'zh-CN');
+    });
+    setClassList(sortedClasses);
+    
+    const positionSet = new Set<string>();
+    ['园长', '副园长', '保教主任', '后勤主任', '班长', '配班', '保育员', 
+     '美术老师', '舞蹈老师', '英语老师', '体育老师', '音乐老师',
+     '厨师长', '帮厨', '门卫', '保洁', '保健医生', '财务'].forEach(p => positionSet.add(p));
+    teachers.forEach((t: any) => { if (t.role) positionSet.add(t.role); if (t._ossPosition) positionSet.add(t._ossPosition); });
+    ossStaff.forEach((s: any) => { if (s.position) positionSet.add(s.position); if (s.role && s.role !== 'TEACHER' && s.role !== 'ADMIN') positionSet.add(s.role); });
+    
+    setPositionList(Array.from(positionSet).filter(Boolean));
+  };
 
   // 加载数据（从本地存储，阿里云OSS负责同步）
   const loadData = async () => {
@@ -382,20 +427,26 @@ const SystemManagementView: React.FC<SystemManagementViewProps> = ({ currentUser
                     </select>
                   </div>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                    <input 
-                      type="text"
+                    <select
                       value={newPhonePosition}
                       onChange={(e) => setNewPhonePosition(e.target.value)}
-                      placeholder="职务（如：园长、班长）"
                       className="px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-none"
-                    />
-                    <input 
-                      type="text"
+                    >
+                      <option value="">选择职务</option>
+                      {positionList.map(p => (
+                        <option key={p} value={p}>{p}</option>
+                      ))}
+                    </select>
+                    <select
                       value={newPhoneClass}
                       onChange={(e) => setNewPhoneClass(e.target.value)}
-                      placeholder="班级（如：大一班）"
                       className="px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-none"
-                    />
+                    >
+                      <option value="">选择班级（可选）</option>
+                      {classList.map(c => (
+                        <option key={c} value={c}>{c}</option>
+                      ))}
+                    </select>
                     <select 
                       value={newPhoneRole}
                       onChange={(e) => setNewPhoneRole(e.target.value)}
