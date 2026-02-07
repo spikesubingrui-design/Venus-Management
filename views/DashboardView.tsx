@@ -50,19 +50,20 @@ const DashboardView: React.FC<DashboardViewProps> = ({ user, onNavigate }) => {
       setStudents(deduped);
     }
     
-    // 同时从 kt_teachers 和 kt_staff 加载教职工，取更完整的数据
-    const webTeachers: any[] = JSON.parse(localStorage.getItem('kt_teachers') || '[]');
+    // 从 kt_teachers, kt_staff, kt_authorized_phones 三个来源合并补齐教职工
+    let currentTeachers: any[] = JSON.parse(localStorage.getItem('kt_teachers') || '[]');
     const ossStaff: any[] = JSON.parse(localStorage.getItem('kt_staff') || '[]');
+    const authorizedPhones: any[] = JSON.parse(localStorage.getItem('kt_authorized_phones') || '[]');
     
-    // 如果 kt_staff 有更多数据，说明 kt_teachers 落后了，进行合并
-    if (ossStaff.length > webTeachers.length) {
-      const existingPhones = new Set(webTeachers.map((t: any) => t.phone || t.id));
-      const missing = ossStaff.filter((s: any) => {
+    // 第一步：从 kt_staff 补充到 kt_teachers
+    if (ossStaff.length > 0) {
+      const existingPhones = new Set(currentTeachers.map((t: any) => t.phone || t.id));
+      const missingFromStaff = ossStaff.filter((s: any) => {
         const k = s.phone || s.id;
         return k && !existingPhones.has(k);
       });
-      if (missing.length > 0) {
-        const converted = missing.map((s: any) => ({
+      if (missingFromStaff.length > 0) {
+        const converted = missingFromStaff.map((s: any) => ({
           id: s.id, name: s.name, role: s.position || s.role || '',
           phone: s.phone || '', assignedClass: Array.isArray(s.assignedClasses) ? s.assignedClasses[0] || s.class || '' : s.class || '',
           campus: s.campus || '', hireDate: s.hireDate || '', status: s.status || 'active',
@@ -71,10 +72,64 @@ const DashboardView: React.FC<DashboardViewProps> = ({ user, onNavigate }) => {
           _ossRole: s.role, _ossPosition: s.position, _ossClass: s.class,
           _ossAssignedClasses: s.assignedClasses, _ossCampus: s.campus, _ossGender: s.gender,
         }));
-        const merged = [...webTeachers, ...converted];
-        localStorage.setItem('kt_teachers', JSON.stringify(merged));
-        console.log(`[Dashboard] 🔄 kt_teachers 从 kt_staff 补充: +${missing.length} → ${merged.length} 条`);
+        currentTeachers = [...currentTeachers, ...converted];
+        console.log(`[Dashboard] 🔄 从 kt_staff 补充: +${missingFromStaff.length}`);
       }
+    }
+    
+    // 第二步：从 kt_authorized_phones 补充（非家长角色）
+    if (authorizedPhones.length > 0) {
+      const existingPhones2 = new Set(currentTeachers.map((t: any) => t.phone || t.id));
+      const nonParentAuth = authorizedPhones.filter((p: any) => {
+        const phone = typeof p === 'string' ? p : p.phone;
+        const role = typeof p === 'object' ? (p.role || '') : '';
+        return phone && role !== 'PARENT' && !existingPhones2.has(phone);
+      });
+      if (nonParentAuth.length > 0) {
+        const converted = nonParentAuth.map((p: any) => {
+          const phone = typeof p === 'string' ? p : p.phone;
+          const name = typeof p === 'object' ? (p.name || phone) : phone;
+          const gender = typeof p === 'object' ? (p.gender || '') : '';
+          return {
+            id: `staff_${phone}_${Date.now()}`, name, phone,
+            role: typeof p === 'object' ? (p.position || p.role || '') : '',
+            assignedClass: typeof p === 'object' ? (p.assignedClass || '') : '',
+            campus: typeof p === 'object' ? (p.campus || '') : '',
+            hireDate: typeof p === 'object' ? (p.created_at?.split('T')[0] || new Date().toISOString().split('T')[0]) : new Date().toISOString().split('T')[0],
+            status: 'active',
+            avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=${gender === '男' ? '4A90A4' : 'E879A0'}&color=fff&size=128`,
+            performanceScore: 95, education: '本科', certificates: [],
+            _ossRole: typeof p === 'object' ? p.role : '', _ossPosition: typeof p === 'object' ? p.position : '',
+            _ossClass: typeof p === 'object' ? p.assignedClass : '', _ossCampus: typeof p === 'object' ? p.campus : '',
+            _ossGender: gender,
+          };
+        });
+        currentTeachers = [...currentTeachers, ...converted];
+        // 同时补充到 kt_staff
+        const staffList: any[] = JSON.parse(localStorage.getItem('kt_staff') || '[]');
+        const staffPhones = new Set(staffList.map((s: any) => s.phone));
+        const newStaff = nonParentAuth.filter((p: any) => !staffPhones.has(typeof p === 'string' ? p : p.phone)).map((p: any) => ({
+          id: `staff_${typeof p === 'string' ? p : p.phone}_${Date.now()}`,
+          name: typeof p === 'object' ? (p.name || p.phone) : p,
+          phone: typeof p === 'string' ? p : p.phone,
+          gender: typeof p === 'object' ? (p.gender || '') : '',
+          class: typeof p === 'object' ? (p.assignedClass || '') : '',
+          position: typeof p === 'object' ? (p.position || '') : '',
+          campus: typeof p === 'object' ? (p.campus || '') : '',
+          role: typeof p === 'object' ? (p.role || '') : '',
+          assignedClasses: typeof p === 'object' && p.assignedClass ? [p.assignedClass] : [],
+          hireDate: new Date().toISOString().split('T')[0], status: 'active',
+        }));
+        if (newStaff.length > 0) {
+          localStorage.setItem('kt_staff', JSON.stringify([...staffList, ...newStaff]));
+        }
+        console.log(`[Dashboard] 🔄 从 kt_authorized_phones 补充: +${nonParentAuth.length}`);
+      }
+    }
+    
+    // 保存合并后的结果
+    if (currentTeachers.length > 0) {
+      localStorage.setItem('kt_teachers', JSON.stringify(currentTeachers));
     }
     
     // 重新读取合并后的数据
