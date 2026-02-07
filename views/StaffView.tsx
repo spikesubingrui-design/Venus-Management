@@ -14,7 +14,7 @@ import { canEditSensitiveFields, getSensitiveFieldsList, filterEditableFields, S
 import ConfirmUploadModal, { UploadSuccessToast } from '../components/ConfirmUploadModal';
 import { EditHistoryButton } from '../components/EditHistoryPanel';
 import { ChineseDatePicker } from '../components/ChineseDatePicker';
-import { uploadToAliyun, isAliyunConfigured } from '../services/aliyunOssService';
+import { uploadToAliyun, downloadFromAliyun, isAliyunConfigured } from '../services/aliyunOssService';
 
 /**
  * 将网页版教职工数据同步到 kt_staff（OSS格式），确保小程序端可读
@@ -150,18 +150,60 @@ const StaffView: React.FC<StaffViewProps> = ({ currentUser }) => {
   };
 
   useEffect(() => {
+    // 先从本地加载（立即显示）
     const saved = localStorage.getItem('kt_teachers');
     if (saved) {
       const parsed = JSON.parse(saved);
       const deduped = dedupTeachers(parsed);
       setTeachers(deduped);
-      // 如果有重复，清理localStorage
       if (deduped.length !== parsed.length) {
         localStorage.setItem('kt_teachers', JSON.stringify(deduped));
         console.log(`[StaffView] 教职工去重: ${parsed.length} → ${deduped.length}`);
       }
     }
-    // 不再预填充模拟数据，初始为空列表
+
+    // 然后从云端拉取最新数据（异步，确保小程序新增的老师能同步过来）
+    if (isAliyunConfigured) {
+      downloadFromAliyun('kt_staff').then(cloudStaff => {
+        if (cloudStaff && cloudStaff.length > 0) {
+          // 转换 OSS 格式 → 网页格式
+          const convertedTeachers = cloudStaff.map((s: any) => ({
+            id: s.id,
+            name: s.name,
+            role: s.position || s.role || '',
+            phone: s.phone || '',
+            avatar: s.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(s.name)}&background=${s.gender === '男' ? '4A90A4' : 'E879A0'}&color=fff&size=128`,
+            assignedClass: Array.isArray(s.assignedClasses) ? s.assignedClasses[0] || s.class || '' : s.class || '',
+            performanceScore: s.performanceScore || 95,
+            campus: s.campus || '',
+            hireDate: s.hireDate || '2024-01-01',
+            education: s.education || '本科',
+            certificates: s.certificates || [],
+            status: s.status || 'active',
+            _ossRole: s.role,
+            _ossPosition: s.position,
+            _ossClass: s.class,
+            _ossAssignedClasses: s.assignedClasses,
+            _ossCampus: s.campus,
+            _ossGender: s.gender,
+          }));
+          // 合并：云端数据 + 本地独有数据
+          const localTeachers: any[] = JSON.parse(localStorage.getItem('kt_teachers') || '[]');
+          const cloudPhones = new Set(convertedTeachers.map((t: any) => t.phone || t.id));
+          const localOnly = localTeachers.filter((t: any) => {
+            const k = t.phone || t.id;
+            return k && !cloudPhones.has(k);
+          });
+          const merged = dedupTeachers([...convertedTeachers, ...localOnly]);
+          localStorage.setItem('kt_teachers', JSON.stringify(merged));
+          localStorage.setItem('kt_staff', JSON.stringify(cloudStaff));
+          setTeachers(merged);
+          console.log(`[StaffView] 云端同步完成: 云端${convertedTeachers.length} + 本地新增${localOnly.length} = ${merged.length}条`);
+        }
+      }).catch(err => {
+        console.log('[StaffView] 云端同步跳过:', err);
+      });
+    }
     
     const savedSchedules = localStorage.getItem('kt_schedules');
     if (savedSchedules) setSchedules(JSON.parse(savedSchedules));
