@@ -48,13 +48,22 @@ interface AuthorizedPhone {
   created_at?: string;
 }
 
+// 根据职务自动推导系统角色
+function positionToRole(position: string): string {
+  if (['园长', '副园长', '保教主任', '后勤主任', '财务', '行政'].includes(position)) return 'ADMIN';
+  if (['厨师长', '帮厨'].includes(position)) return 'KITCHEN';
+  if (['门卫', '保安'].includes(position)) return 'SECURITY';
+  if (position === '保健医生') return 'HEALTH_TEACHER';
+  if (position === '家长') return 'PARENT';
+  return 'TEACHER';
+}
+
 const SystemManagementView: React.FC<SystemManagementViewProps> = ({ currentUser }) => {
   const [authorizedPhones, setAuthorizedPhones] = useState<AuthorizedPhone[]>([]);
   const [newPhone, setNewPhone] = useState('');
   const [newPhoneName, setNewPhoneName] = useState('');
   const [newPhoneGender, setNewPhoneGender] = useState('女');
   const [newPhoneCampus, setNewPhoneCampus] = useState('总园');
-  const [newPhoneRole, setNewPhoneRole] = useState('TEACHER');
   const [newPhonePosition, setNewPhonePosition] = useState('');
   const [newPhoneClass, setNewPhoneClass] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
@@ -111,9 +120,11 @@ const SystemManagementView: React.FC<SystemManagementViewProps> = ({ currentUser
     const positionSet = new Set<string>();
     ['园长', '副园长', '保教主任', '后勤主任', '班长', '配班', '保育员', 
      '美术老师', '舞蹈老师', '英语老师', '体育老师', '音乐老师',
-     '厨师长', '帮厨', '门卫', '保洁', '保健医生', '财务'].forEach(p => positionSet.add(p));
-    teachers.forEach((t: any) => { if (t.role) positionSet.add(t.role); if (t._ossPosition) positionSet.add(t._ossPosition); });
-    ossStaff.forEach((s: any) => { if (s.position) positionSet.add(s.position); if (s.role && s.role !== 'TEACHER' && s.role !== 'ADMIN') positionSet.add(s.role); });
+     '厨师长', '帮厨', '门卫', '保洁', '保健医生', '财务', '家长'].forEach(p => positionSet.add(p));
+    // 只添加中文职务名，过滤掉英文系统角色
+    const englishRoles = new Set(['TEACHER', 'ADMIN', 'SUPER_ADMIN', 'HEALTH_TEACHER', 'KITCHEN', 'SECURITY', 'PARENT']);
+    teachers.forEach((t: any) => { if (t._ossPosition) positionSet.add(t._ossPosition); });
+    ossStaff.forEach((s: any) => { if (s.position && !englishRoles.has(s.position)) positionSet.add(s.position); });
     
     setPositionList(Array.from(positionSet).filter(Boolean));
   };
@@ -189,18 +200,27 @@ const SystemManagementView: React.FC<SystemManagementViewProps> = ({ currentUser
       alert('请输入正确的11位手机号');
       return;
     }
+    if (!newPhoneName.trim()) {
+      alert('请输入姓名');
+      return;
+    }
+    if (!newPhonePosition) {
+      alert('请选择职务');
+      return;
+    }
     
     if (authorizedPhones.find(p => p.phone === cleanPhone)) {
       alert('该手机号已在授权列表中');
       return;
     }
 
+    const derivedRole = positionToRole(newPhonePosition);
     const newAuthorizedPhone: AuthorizedPhone = {
       phone: cleanPhone,
       name: newPhoneName,
       gender: newPhoneGender,
       campus: newPhoneCampus,
-      role: newPhoneRole,
+      role: derivedRole,
       position: newPhonePosition,
       assignedClass: newPhoneClass,
       is_used: false,
@@ -213,7 +233,7 @@ const SystemManagementView: React.FC<SystemManagementViewProps> = ({ currentUser
     saveAndSync('kt_authorized_phones', updated);
     
     // 同时添加到 kt_staff 和 kt_teachers（非家长角色）
-    if (newPhoneRole !== 'PARENT') {
+    if (derivedRole !== 'PARENT') {
       const staffList: any[] = JSON.parse(localStorage.getItem('kt_staff') || '[]');
       const teacherList: any[] = JSON.parse(localStorage.getItem('kt_teachers') || '[]');
       
@@ -227,7 +247,7 @@ const SystemManagementView: React.FC<SystemManagementViewProps> = ({ currentUser
           name: newPhoneName, phone: cleanPhone, gender: newPhoneGender,
           class: newPhoneClass, className: newPhoneClass,
           position: newPhonePosition, campus: newPhoneCampus,
-          role: newPhoneRole, assignedClasses: newPhoneClass ? [newPhoneClass] : [],
+          role: derivedRole, assignedClasses: newPhoneClass ? [newPhoneClass] : [],
           hireDate: new Date().toISOString().split('T')[0], status: 'active',
         };
         staffList.push(newStaffEntry);
@@ -238,12 +258,12 @@ const SystemManagementView: React.FC<SystemManagementViewProps> = ({ currentUser
       if (!existsInTeachers) {
         const newTeacherEntry = {
           id: `staff_${cleanPhone}_${Date.now()}`,
-          name: newPhoneName, phone: cleanPhone, role: newPhonePosition || newPhoneRole,
+          name: newPhoneName, phone: cleanPhone, role: newPhonePosition,
           assignedClass: newPhoneClass, campus: newPhoneCampus,
           hireDate: new Date().toISOString().split('T')[0], status: 'active',
           avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(newPhoneName)}&background=${newPhoneGender === '男' ? '4A90A4' : 'E879A0'}&color=fff&size=128`,
           performanceScore: 95, education: '本科', certificates: [],
-          _ossRole: newPhoneRole, _ossPosition: newPhonePosition,
+          _ossRole: derivedRole, _ossPosition: newPhonePosition,
           _ossClass: newPhoneClass, _ossCampus: newPhoneCampus, _ossGender: newPhoneGender,
         };
         teacherList.push(newTeacherEntry);
@@ -272,11 +292,12 @@ const SystemManagementView: React.FC<SystemManagementViewProps> = ({ currentUser
     setEditForm({ ...p });
   };
 
-  // 保存编辑
+  // 保存编辑（自动推导角色）
   const handleSaveEdit = () => {
     if (!editingPhone) return;
+    const derivedRole = editForm.position ? positionToRole(editForm.position) : (editForm.role || 'TEACHER');
     const updated = authorizedPhones.map(p => 
-      p.phone === editingPhone ? { ...p, ...editForm } : p
+      p.phone === editingPhone ? { ...p, ...editForm, role: derivedRole } : p
     );
     setAuthorizedPhones(updated);
     saveAndSync('kt_authorized_phones', updated);
@@ -452,9 +473,10 @@ const SystemManagementView: React.FC<SystemManagementViewProps> = ({ currentUser
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
                     <input 
                       type="text"
+                      required
                       value={newPhoneName}
                       onChange={(e) => setNewPhoneName(e.target.value)}
-                      placeholder="姓名"
+                      placeholder="姓名 *"
                       className="px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-none"
                     />
                     <div className="relative">
@@ -496,11 +518,12 @@ const SystemManagementView: React.FC<SystemManagementViewProps> = ({ currentUser
                   </div>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                     <select
+                      required
                       value={newPhonePosition}
                       onChange={(e) => setNewPhonePosition(e.target.value)}
                       className="px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-none"
                     >
-                      <option value="">选择职务</option>
+                      <option value="">选择职务 *</option>
                       {positionList.map(p => (
                         <option key={p} value={p}>{p}</option>
                       ))}
@@ -514,18 +537,6 @@ const SystemManagementView: React.FC<SystemManagementViewProps> = ({ currentUser
                       {classList.map(c => (
                         <option key={c} value={c}>{c}</option>
                       ))}
-                    </select>
-                    <select 
-                      value={newPhoneRole}
-                      onChange={(e) => setNewPhoneRole(e.target.value)}
-                      className="px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-none"
-                    >
-                      <option value="TEACHER">教师</option>
-                      <option value="ADMIN">管理员</option>
-                      <option value="HEALTH_TEACHER">保健医生</option>
-                      <option value="KITCHEN">厨房</option>
-                      <option value="SECURITY">安保</option>
-                      <option value="PARENT">家长</option>
                     </select>
                     <button type="submit" className="bg-amber-600 text-white rounded-xl font-bold text-sm hover:bg-amber-700 shadow-lg shadow-amber-200 transition-all active:scale-95 flex items-center justify-center gap-2">
                       <UserPlus className="w-4 h-4" />
@@ -546,7 +557,6 @@ const SystemManagementView: React.FC<SystemManagementViewProps> = ({ currentUser
                         <th className="pb-4">园区</th>
                         <th className="pb-4">职务</th>
                         <th className="pb-4">班级</th>
-                        <th className="pb-4">角色</th>
                         <th className="pb-4 text-right pr-4">操作</th>
                       </tr>
                     </thead>
@@ -649,20 +659,6 @@ const SystemManagementView: React.FC<SystemManagementViewProps> = ({ currentUser
                                 ) : assignedClass ? (
                                   <span className="text-xs font-bold px-2 py-0.5 bg-amber-50 text-amber-700 rounded-full">{assignedClass}</span>
                                 ) : <span className="text-slate-300">-</span>}
-                              </td>
-                              <td className="py-3">
-                                {isEditing ? (
-                                  <select value={editForm.role || ''} onChange={e => setEditForm({...editForm, role: e.target.value})} className={selectCls}>
-                                    <option value="TEACHER">教师</option>
-                                    <option value="ADMIN">管理员</option>
-                                    <option value="HEALTH_TEACHER">保健医生</option>
-                                    <option value="KITCHEN">厨房</option>
-                                    <option value="SECURITY">安保</option>
-                                    <option value="PARENT">家长</option>
-                                  </select>
-                                ) : (
-                                  <span className="text-xs font-bold text-slate-500">{roleLabel[role] || role || '-'}</span>
-                                )}
                               </td>
                               <td className="py-3 text-right pr-4">
                                 {isEditing ? (
