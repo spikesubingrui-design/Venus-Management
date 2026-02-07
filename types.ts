@@ -16,7 +16,8 @@ export enum AppView {
   GROWTH_ARCHIVE = 'GROWTH_ARCHIVE', // 成长档案
   MAINTENANCE = 'MAINTENANCE',   // 维修报修
   DATA_COCKPIT = 'DATA_COCKPIT', // 数据驾驶舱
-  ANOMALY_MONITOR = 'ANOMALY_MONITOR' // 异常监控
+  ANOMALY_MONITOR = 'ANOMALY_MONITOR', // 异常监控
+  PROFILE = 'PROFILE'              // 个人中心
 }
 
 // 园区类型：普惠园、高端园、九幼、十七幼

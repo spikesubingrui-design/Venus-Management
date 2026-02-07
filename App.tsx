@@ -24,6 +24,7 @@ import GrowthArchiveView from './views/GrowthArchiveView';
 import MaintenanceView from './views/MaintenanceView';
 import DataCockpitView from './views/DataCockpitView';
 import AnomalyMonitorView from './views/AnomalyMonitorView';
+import ProfileView from './views/ProfileView';
 import { getRoleName } from './services/permissionService';
 import { initializeData } from './services/dataInitService';
 import { initializeFromAliyun, isAliyunConfigured } from './services/aliyunOssService';
@@ -169,6 +170,7 @@ const App: React.FC = () => {
       case AppView.DOCUMENTS: return <DocumentView currentUser={user} />;
       case AppView.CALENDAR: return <CalendarView user={user} />;
       case AppView.AI_ASSISTANT: return <AIAssistantView />;
+      case AppView.PROFILE: return <ProfileView currentUser={user} />;
       default: return <DashboardView user={user} onNavigate={setCurrentView} />;
     }
   };
@@ -198,9 +200,11 @@ const App: React.FC = () => {
         } 
         flex flex-col shadow-2xl
       `} style={{ backgroundColor: '#f5f2ed', borderRight: '1px solid #e8e4dc' }}>
-        {/* Logo区域带叶子装饰 */}
+        {/* Logo区域带叶子装饰 - 点击回到主页 */}
         <div className="p-4 md:p-6 h-20 md:h-24 flex items-center justify-between relative">
-          <Logo hideText={!isSidebarOpen && !isMobile} size={isSidebarOpen || isMobile ? 'md' : 'sm'} />
+          <div className="cursor-pointer" onClick={() => { setCurrentView(AppView.DASHBOARD); if (isMobile) setIsMobileMenuOpen(false); }}>
+            <Logo hideText={!isSidebarOpen && !isMobile} size={isSidebarOpen || isMobile ? 'md' : 'sm'} />
+          </div>
           {isMobile && (
             <button 
               onClick={() => setIsMobileMenuOpen(false)}
@@ -268,7 +272,11 @@ const App: React.FC = () => {
               </span>
             </div>
           </div>
-          <div className="flex items-center gap-3 md:gap-4">
+          <div 
+            className="flex items-center gap-3 md:gap-4 cursor-pointer hover:opacity-80 transition-opacity"
+            onClick={() => setCurrentView(AppView.PROFILE)}
+            title="点击进入个人中心"
+          >
             <div className="text-right">
               <p className="text-sm font-bold text-[#4a5d3a] truncate max-w-[80px] md:max-w-none">{user.name}</p>
               <p className="text-[9px] text-[#8b7355] font-medium tracking-wide hidden md:block">{getRoleName(user.role)}</p>
