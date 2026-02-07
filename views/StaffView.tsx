@@ -193,18 +193,12 @@ const StaffView: React.FC<StaffViewProps> = ({ currentUser }) => {
             _ossCampus: s.campus,
             _ossGender: s.gender,
           }));
-          // 合并：云端数据 + 本地独有数据
-          const localTeachers: any[] = JSON.parse(localStorage.getItem('kt_teachers') || '[]');
-          const cloudPhones = new Set(convertedTeachers.map((t: any) => t.phone || t.id));
-          const localOnly = localTeachers.filter((t: any) => {
-            const k = t.phone || t.id;
-            return k && !cloudPhones.has(k);
-          });
-          const merged = dedupTeachers([...convertedTeachers, ...localOnly]);
-          localStorage.setItem('kt_teachers', JSON.stringify(merged));
+          // 云端数据直接覆盖本地（确保删除操作能正确同步，不保留本地残留）
+          const deduped = dedupTeachers(convertedTeachers);
+          localStorage.setItem('kt_teachers', JSON.stringify(deduped));
           localStorage.setItem('kt_staff', JSON.stringify(cloudStaff));
-          setTeachers(merged);
-          console.log(`[StaffView] 云端同步完成: 云端${convertedTeachers.length} + 本地新增${localOnly.length} = ${merged.length}条`);
+          setTeachers(deduped);
+          console.log(`[StaffView] 云端覆盖本地: ${deduped.length}条`);
         }
       })
       .catch(err => {

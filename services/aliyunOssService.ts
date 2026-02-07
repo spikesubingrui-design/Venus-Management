@@ -471,36 +471,13 @@ export async function initializeFromAliyun(
       const isCloudAuthority = CLOUD_AUTHORITY_KEYS.includes(key);
 
       if (isCloudAuthority) {
-        // 核心数据：从云端下载，但与本地合并（防止丢失本地新增）
+        // 核心数据：云端为唯一权威来源，直接覆盖本地（确保删除操作能正确同步）
         const cloudData = await downloadFromAliyun<{ id: string; name?: string; phone?: string }>(key);
         if (cloudData.length > 0) {
           const dedupedCloud = deduplicateData(cloudData);
-          
-          // 合并本地独有数据（本地新增但还未同步到云端的）
-          if (localData.length > 0) {
-            const cloudIds = new Set(dedupedCloud.map((d: any) => d.phone || d.id));
-            const localOnly = localData.filter((d: any) => {
-              const k = d.phone || d.id;
-              return k && !cloudIds.has(k);
-            });
-            
-            if (localOnly.length > 0) {
-              const merged = [...dedupedCloud, ...localOnly];
-              localStorage.setItem(key, JSON.stringify(merged));
-              console.log(`[AliyunOSS] 🔄 ${key}: 合并 云端${dedupedCloud.length} + 本地新增${localOnly.length} = ${merged.length} 条`);
-              // 回传合并后的数据到云端
-              uploadToAliyun(key, merged);
-              results[key] = { count: merged.length };
-            } else {
-              localStorage.setItem(key, JSON.stringify(dedupedCloud));
-              console.log(`[AliyunOSS] 📥 ${key}: 从云端下载最新数据 ${dedupedCloud.length} 条`);
-              results[key] = { count: dedupedCloud.length };
-            }
-          } else {
-            localStorage.setItem(key, JSON.stringify(dedupedCloud));
-            console.log(`[AliyunOSS] 📥 ${key}: 从云端下载最新数据 ${dedupedCloud.length} 条`);
-            results[key] = { count: dedupedCloud.length };
-          }
+          localStorage.setItem(key, JSON.stringify(dedupedCloud));
+          console.log(`[AliyunOSS] 📥 ${key}: 云端覆盖本地 ${dedupedCloud.length} 条`);
+          results[key] = { count: dedupedCloud.length };
         } else if (localData.length > 0) {
           // 云端为空但本地有数据，保留本地数据并上传到云端
           console.log(`[AliyunOSS] ⚠️ ${key}: 云端为空，保留本地数据 ${localData.length} 条并上传`);
@@ -580,26 +557,9 @@ export async function initializeFromAliyun(
         _ossGender: s.gender,
       }));
       
-      // 合并本地 kt_teachers 中可能存在的新增数据（防止覆盖本地新增）
-      const existingWebTeachers: any[] = JSON.parse(localStorage.getItem('kt_teachers') || '[]');
-      if (existingWebTeachers.length > 0) {
-        const convertedIds = new Set(convertedTeachers.map((t: any) => t.phone || t.id));
-        const localOnlyTeachers = existingWebTeachers.filter((t: any) => {
-          const k = t.phone || t.id;
-          return k && !convertedIds.has(k);
-        });
-        if (localOnlyTeachers.length > 0) {
-          const mergedTeachers = [...convertedTeachers, ...localOnlyTeachers];
-          localStorage.setItem('kt_teachers', JSON.stringify(mergedTeachers));
-          console.log(`[AliyunOSS] 🔄 kt_staff → kt_teachers 合并完成: 转换${convertedTeachers.length} + 本地新增${localOnlyTeachers.length} = ${mergedTeachers.length} 条`);
-        } else {
-          localStorage.setItem('kt_teachers', JSON.stringify(convertedTeachers));
-          console.log(`[AliyunOSS] 🔄 kt_staff → kt_teachers 同步完成: ${convertedTeachers.length} 条`);
-        }
-      } else {
-        localStorage.setItem('kt_teachers', JSON.stringify(convertedTeachers));
-        console.log(`[AliyunOSS] 🔄 kt_staff → kt_teachers 同步完成: ${convertedTeachers.length} 条`);
-      }
+      // 云端数据直接覆盖 kt_teachers（不合并本地残留，确保删除操作能同步）
+      localStorage.setItem('kt_teachers', JSON.stringify(convertedTeachers));
+      console.log(`[AliyunOSS] 🔄 kt_staff → kt_teachers 覆盖完成: ${convertedTeachers.length} 条`);
     }
   } catch (err) {
     console.error('[AliyunOSS] kt_teachers 同步失败:', err);
