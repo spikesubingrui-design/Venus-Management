@@ -48,7 +48,7 @@ export const Logo: React.FC<{ size?: 'sm' | 'md' | 'lg', hideText?: boolean, lig
       {!hideText && (
         <div className="flex flex-col">
           <span className={`font-bold ${size === 'lg' ? 'text-2xl' : 'text-lg'} ${light ? 'text-amber-50' : 'text-[#4a5d3a]'} tracking-tight`} style={{ fontFamily: "'Noto Serif SC', serif" }}>金星幼儿园</span>
-          <span className={`text-[9px] ${light ? 'text-amber-200/80' : 'text-[#8b7355]'} font-medium tracking-widest uppercase`}>Nature · Nurture · Growth</span>
+          <span className={`text-[9px] ${light ? 'text-amber-200/80' : 'text-[#8b7355]'} font-medium tracking-widest uppercase`}>KIDDA VENUS KINDERGARTEN</span>
         </div>
       )}
     </div>
@@ -243,6 +243,9 @@ const App: React.FC = () => {
             <LogOut className="w-5 h-5" />
             {(isSidebarOpen || isMobile) && <span className="text-sm font-semibold">安全注销</span>}
           </button>
+          {(isSidebarOpen || isMobile) && (
+            <p className="text-center text-[10px] text-[#8b7355]/60 mt-1">V1.1.3</p>
+          )}
         </div>
       </aside>
 

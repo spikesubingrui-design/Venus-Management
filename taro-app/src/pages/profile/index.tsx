@@ -509,7 +509,7 @@ export default function Profile() {
           <View className='menu-item'>
             <Text className='icon'>ℹ️</Text>
             <Text className='label'>版本</Text>
-            <Text className='value'>v1.1.2</Text>
+            <Text className='value'>v1.1.3</Text>
           </View>
         </View>
 
