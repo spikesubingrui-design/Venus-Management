@@ -485,7 +485,7 @@ const DataCockpitView: React.FC<DataCockpitViewProps> = ({ currentUser, onNaviga
 
       {/* 页脚信息 */}
       <div className="text-center text-xs text-slate-600 pt-4">
-        <p>金星教育集团 · 数据驾驶舱 v1.0</p>
+        <p>金星教育集团 · 数据驾驶舱 V1.1.3</p>
         <p className="mt-1">数据每30秒自动刷新 · 最后更新: {lastUpdate.toLocaleString()}</p>
       </div>
     </div>
