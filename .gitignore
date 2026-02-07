@@ -40,7 +40,7 @@ android/
 miniprogram/
 
 # Taro build
-taro-app/dist/
+taro-app/
 
 # Python cache
 __pycache__/
