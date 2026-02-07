@@ -236,11 +236,11 @@ const DashboardView: React.FC<DashboardViewProps> = ({ user, onNavigate }) => {
                 <div className="flex items-center gap-3 mt-3">
                   <Badge variant="success" size="sm">
                     <Leaf className="w-3 h-3" />
-                    自然成长
+                    真诚到永远
                   </Badge>
                   <Badge variant="success" size="sm">
                     <Bird className="w-3 h-3" />
-                    快乐学习
+                    有爱 · 真实 · 自然 · 有根
                   </Badge>
                 </div>
               </div>

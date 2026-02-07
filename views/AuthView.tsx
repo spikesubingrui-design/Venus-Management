@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { User, UserRole } from '../types';
-import { LogIn, ShieldCheck, Phone, AlertCircle, UserCircle, Users, UtensilsCrossed, GraduationCap, Loader2, Building2, Lock, Eye, EyeOff, Crown, Cloud, CloudOff, Info, Leaf, TreeDeciduous, Sprout } from 'lucide-react';
+import { LogIn, ShieldCheck, Phone, AlertCircle, Loader2, Lock, Eye, EyeOff, Crown, Cloud, CloudOff, Leaf, TreeDeciduous, Sprout } from 'lucide-react';
 import { Logo } from '../App';
 import { supabase, isSupabaseConfigured } from '../services/supabaseClient';
 import { isAliyunConfigured } from '../services/aliyunOssService';
@@ -30,13 +30,7 @@ const PRESET_FINANCE = {
   campus: '总园'
 };
 
-// 默认园区列表（包含总园）
-const DEFAULT_CAMPUSES = [
-  '总园', '南江', '高新', '新市花园', '创越', 
-  '七幼', '八幼', '九幼', '十幼', '十二幼', '十七幼'
-];
-
-// 简单的密码哈希函数
+// 简单的密码哈希函数（与小程序保持一致）
 const hashPassword = (password: string): string => {
   let hash = 0;
   for (let i = 0; i < password.length; i++) {
@@ -47,29 +41,6 @@ const hashPassword = (password: string): string => {
   return 'hash_' + Math.abs(hash).toString(16);
 };
 
-// 密码强度验证
-const validatePassword = (password: string): { valid: boolean; message: string } => {
-  if (!password || password.length < 6) {
-    return { valid: false, message: '密码至少需要6位' };
-  }
-  if (!/[a-zA-Z]/.test(password)) {
-    return { valid: false, message: '密码必须包含至少一个英文字母' };
-    }
-  if (!/[0-9]/.test(password)) {
-    return { valid: false, message: '密码必须包含至少一个数字' };
-  }
-  return { valid: true, message: '' };
-};
-
-// 可注册的角色
-const AVAILABLE_ROLES: { role: UserRole; label: string; icon: React.ElementType; desc: string; color: string }[] = [
-  { role: 'ADMIN', label: '园区管理员', icon: Users, desc: '管理本园区所有功能', color: 'text-amber-600 bg-amber-50' },
-  { role: 'FINANCE', label: '财务人员', icon: Crown, desc: '收费管理和财务报表', color: 'text-rose-600 bg-rose-50' },
-  { role: 'TEACHER', label: '教师', icon: GraduationCap, desc: '考勤、健康、课程等', color: 'text-blue-600 bg-blue-50' },
-  { role: 'KITCHEN', label: '厨房人员', icon: UtensilsCrossed, desc: '食谱和采购管理', color: 'text-emerald-600 bg-emerald-50' },
-  { role: 'PARENT', label: '家长', icon: UserCircle, desc: '查看孩子信息和通知', color: 'text-purple-600 bg-purple-50' },
-];
-
 // 短信云函数配置
 const SMS_CONFIG = {
   functionUrl: 'https://venus-gfectwrqon.cn-beijing.fcapp.run',
@@ -79,16 +50,10 @@ const AuthView: React.FC<AuthViewProps> = ({ onLogin }) => {
   const toast = useToast();
   const [isLogin, setIsLogin] = useState(true);
   const [loginType, setLoginType] = useState<'password' | 'sms'>('password');
-  const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [showPasswordTip, setShowPasswordTip] = useState(false);
-  const [passwordError, setPasswordError] = useState(false);
-  const [campuses, setCampuses] = useState<string[]>([]);
-  const [campus, setCampus] = useState('');
-  const [role, setRole] = useState<UserRole>('TEACHER');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [cloudConnected, setCloudConnected] = useState(false);
@@ -96,6 +61,12 @@ const AuthView: React.FC<AuthViewProps> = ({ onLogin }) => {
   // 验证码相关状态
   const [smsCode, setSmsCode] = useState('');
   const [countdown, setCountdown] = useState(0);
+
+  // 设置密码弹窗（验证码登录后首次设置）
+  const [showSetPasswordModal, setShowSetPasswordModal] = useState(false);
+  const [newPassword, setNewPassword] = useState('');
+  const [newPasswordConfirm, setNewPasswordConfirm] = useState('');
+  const [pendingUser, setPendingUser] = useState<User | null>(null);
 
   useEffect(() => {
     initializeData();
@@ -111,9 +82,6 @@ const AuthView: React.FC<AuthViewProps> = ({ onLogin }) => {
 
   // 初始化数据
   const initializeData = async () => {
-    // 加载园区列表
-    await loadCampuses();
-    
     // 检查阿里云OSS连接状态
     if (isAliyunConfigured) {
       setCloudConnected(true);
@@ -135,6 +103,29 @@ const AuthView: React.FC<AuthViewProps> = ({ onLogin }) => {
     
     // 初始化超级管理员
     await initSuperAdmin();
+  };
+
+  // 从教职工名单/授权名单获取用户信息（与小程序一致）
+  const getUserInfoFromStaff = (phoneNumber: string): Partial<User> => {
+    // 从教职工名单查找
+    const staffList: any[] = JSON.parse(localStorage.getItem('kt_staff') || '[]');
+    const staffInfo = staffList.find((s: any) => s.phone === phoneNumber);
+
+    // 从授权名单查找
+    const authorizedPhonesRaw: any[] = JSON.parse(localStorage.getItem('kt_authorized_phones') || '[]');
+    const authInfo = authorizedPhonesRaw.find((p: any) => typeof p === 'object' ? p.phone === phoneNumber : p === phoneNumber);
+
+    let assignedClasses: string[] = staffInfo?.assignedClasses || [];
+    if (typeof authInfo === 'object' && authInfo?.assignedClass && !assignedClasses.includes(authInfo.assignedClass)) {
+      assignedClasses = [...assignedClasses, authInfo.assignedClass];
+    }
+
+    return {
+      name: staffInfo?.name || (typeof authInfo === 'object' ? authInfo?.name : '') || `用户${phoneNumber.slice(-4)}`,
+      role: (staffInfo?.role || (typeof authInfo === 'object' ? authInfo?.role : '') || 'TEACHER') as UserRole,
+      campus: staffInfo?.campus || (typeof authInfo === 'object' ? authInfo?.campus : '') || '十七幼',
+      assignedClasses,
+    };
   };
 
   // 发送验证码
@@ -172,6 +163,98 @@ const AuthView: React.FC<AuthViewProps> = ({ onLogin }) => {
     }
   };
 
+  // 验证码验证通用函数
+  const verifySmsCode = async (): Promise<boolean> => {
+    try {
+      const response = await fetch(SMS_CONFIG.functionUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'verify', phone, code: smsCode }),
+      });
+      const result = await response.json();
+      if (!result.success) {
+        setError(result.message || '验证码错误');
+        return false;
+      }
+      return true;
+    } catch (err) {
+      setError('验证失败，请稍后重试');
+      return false;
+    }
+  };
+
+  // 确保用户记录存在（验证码登录 & 注册共用逻辑）
+  const ensureUserExists = (phoneNumber: string): User => {
+    const allUsers: User[] = JSON.parse(localStorage.getItem('kt_all_users') || '[]');
+    let user = allUsers.find(u => u.phone === phoneNumber);
+
+    if (!user) {
+      const info = getUserInfoFromStaff(phoneNumber);
+      user = {
+        id: `user_${phoneNumber}`,
+        phone: phoneNumber,
+        name: info.name || `用户${phoneNumber.slice(-4)}`,
+        role: info.role || 'TEACHER' as UserRole,
+        campus: info.campus || '十七幼',
+        assignedClasses: info.assignedClasses || [],
+        createdAt: new Date().toISOString(),
+        avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${info.name || phoneNumber}`
+      };
+      allUsers.push(user);
+      saveAndSync('kt_all_users', allUsers);
+    } else {
+      // 更新教职工信息（以名单为准）
+      const info = getUserInfoFromStaff(phoneNumber);
+      if (info.name && info.name !== `用户${phoneNumber.slice(-4)}`) {
+        user.name = info.name;
+        user.role = info.role || user.role;
+        user.campus = info.campus || user.campus;
+        user.assignedClasses = (info.assignedClasses && info.assignedClasses.length > 0) ? info.assignedClasses : user.assignedClasses;
+        const idx = allUsers.findIndex(u => u.phone === phoneNumber);
+        if (idx !== -1) allUsers[idx] = user;
+        saveAndSync('kt_all_users', allUsers);
+      }
+    }
+    return user;
+  };
+
+  // 设置密码并完成登录
+  const handleSetPasswordAndLogin = () => {
+    if (!newPassword || newPassword.length < 6) {
+      toast.error('密码错误', '密码至少需要6位');
+      return;
+    }
+    if (newPassword !== newPasswordConfirm) {
+      toast.error('密码错误', '两次密码不一致');
+      return;
+    }
+    if (!pendingUser) return;
+
+    // 保存密码（与小程序一致的格式）
+    const passwords: Record<string, string> = JSON.parse(localStorage.getItem('kt_user_passwords') || '{}');
+    const hashedPwd = btoa(encodeURIComponent(newPassword + '_venus_salt_' + pendingUser.phone));
+    passwords[pendingUser.phone] = hashedPwd;
+    localStorage.setItem('kt_user_passwords', JSON.stringify(passwords));
+
+    setShowSetPasswordModal(false);
+    setNewPassword('');
+    setNewPasswordConfirm('');
+    toast.success('密码设置成功', `欢迎，${pendingUser.name}！`);
+    onLogin(pendingUser);
+    setPendingUser(null);
+  };
+
+  // 跳过设置密码
+  const handleSkipSetPassword = () => {
+    if (!pendingUser) return;
+    setShowSetPasswordModal(false);
+    setNewPassword('');
+    setNewPasswordConfirm('');
+    toast.success('登录成功', `欢迎，${pendingUser.name}！`);
+    onLogin(pendingUser);
+    setPendingUser(null);
+  };
+
   // 验证码登录
   const handleSmsLogin = async () => {
     if (!phone || phone.length !== 11) {
@@ -187,39 +270,23 @@ const AuthView: React.FC<AuthViewProps> = ({ onLogin }) => {
     setError('');
     
     try {
-      // 验证验证码
-      const response = await fetch(SMS_CONFIG.functionUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'verify', phone, code: smsCode }),
-      });
+      const verified = await verifySmsCode();
+      if (!verified) { setLoading(false); return; }
       
-      const result = await response.json();
-      
-      if (!result.success) {
-        setError(result.message || '验证码错误');
+      // 确保用户存在（自动创建/更新）
+      const user = ensureUserExists(phone);
+
+      // 检查是否已设置密码
+      const passwords: Record<string, string> = JSON.parse(localStorage.getItem('kt_user_passwords') || '{}');
+      if (!passwords[phone]) {
+        // 未设置密码，弹出设置密码弹窗
+        setPendingUser(user);
+        setShowSetPasswordModal(true);
         setLoading(false);
         return;
       }
-      
-      // 验证成功，检查用户
-      const allUsers: User[] = JSON.parse(localStorage.getItem('kt_all_users') || '[]');
-      let user = allUsers.find(u => u.phone === phone);
-      
-      if (!user) {
-        // 自动创建用户
-        user = {
-          id: `user_${Date.now()}`,
-          phone,
-          name: `用户${phone.slice(-4)}`,
-          role: 'TEACHER' as UserRole,
-          campus: '总园',
-          createdAt: new Date().toISOString(),
-        };
-        allUsers.push(user);
-        saveAndSync('kt_all_users', allUsers);
-      }
-      
+
+      // 已有密码，直接登录
       toast.success('登录成功', `欢迎，${user.name}！`);
       onLogin(user);
     } catch (err) {
@@ -228,31 +295,6 @@ const AuthView: React.FC<AuthViewProps> = ({ onLogin }) => {
     } finally {
       setLoading(false);
     }
-  };
-
-  // 加载园区列表（优先云端）
-  const loadCampuses = async () => {
-    let campusList = DEFAULT_CAMPUSES;
-    
-    if (isSupabaseConfigured) {
-      try {
-        const { data } = await supabase.from('campuses').select('name').eq('is_active', true);
-        if (data && data.length > 0) {
-          campusList = data.map(c => c.name);
-          // 确保总园在列表中
-          if (!campusList.includes('总园')) {
-            campusList = ['总园', ...campusList];
-          }
-        }
-      } catch (err) {
-        console.log('加载云端园区失败，使用默认列表');
-      }
-    }
-    
-    // 同步到本地
-    saveAndSync('kt_campuses', campusList);
-    setCampuses(campusList);
-    if (campusList.length > 0) setCampus(campusList[0]);
   };
 
   // 初始化超级管理员（云端 + 本地）
@@ -465,7 +507,6 @@ const AuthView: React.FC<AuthViewProps> = ({ onLogin }) => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    setPasswordError(false);
     setLoading(true);
 
     // 验证手机号
@@ -475,29 +516,15 @@ const AuthView: React.FC<AuthViewProps> = ({ onLogin }) => {
       return;
     }
 
-    // 验证密码（登录时只检查基本长度，注册时检查安全标准）
-    if (!password || password.length < 6) {
-      setError('密码至少需要6位');
-      setPasswordError(true);
-          setLoading(false);
-          return; 
-        }
-
-    // 注册时验证密码安全标准
-    if (!isLogin) {
-      const passwordValidation = validatePassword(password);
-      if (!passwordValidation.valid) {
-        setError(passwordValidation.message);
-        setPasswordError(true);
+    if (isLogin) {
+      // ========== 密码登录模式 ==========
+      if (!password || password.length < 6) {
+        setError('密码至少需要6位');
         setLoading(false);
         return;
       }
-    }
 
-    const passwordHash = hashPassword(password);
-
-    if (isLogin) {
-      // ========== 登录模式 ==========
+      const passwordHash = hashPassword(password);
       
       // 1. 尝试云端登录
       const cloudUser = await cloudLogin(phone, passwordHash);
@@ -509,7 +536,7 @@ const AuthView: React.FC<AuthViewProps> = ({ onLogin }) => {
         const existingIndex = allUsers.findIndex(u => u.phone === phone);
         if (existingIndex === -1) {
           allUsers.push(cloudUser);
-      } else {
+        } else {
           allUsers[existingIndex] = cloudUser;
         }
         passwords[phone] = passwordHash;
@@ -546,16 +573,15 @@ const AuthView: React.FC<AuthViewProps> = ({ onLogin }) => {
       onLogin(existingUser);
       
     } else {
-      // ========== 注册模式 ==========
-
-      if (!name.trim()) {
-        setError('请输入姓名');
+      // ========== 注册模式（与小程序一致：手机号+验证码+密码） ==========
+      if (!smsCode || smsCode.length !== 6) {
+        setError('请输入6位验证码');
         setLoading(false);
         return;
       }
 
-      if (!campus) {
-        setError('请选择所属园区');
+      if (!password || password.length < 6) {
+        setError('密码至少需要6位');
         setLoading(false);
         return;
       }
@@ -566,9 +592,16 @@ const AuthView: React.FC<AuthViewProps> = ({ onLogin }) => {
         return;
       }
 
-      // 检查是否已注册
+      // 验证验证码
+      const verified = await verifySmsCode();
+      if (!verified) { setLoading(false); return; }
+
+      // 检查是否已注册且已设密码
       const allUsers: User[] = JSON.parse(localStorage.getItem('kt_all_users') || '[]');
-      if (allUsers.find(u => u.phone === phone)) {
+      const existingUser = allUsers.find(u => u.phone === phone);
+      const passwords: Record<string, string> = JSON.parse(localStorage.getItem('kt_user_passwords') || '{}');
+      
+      if (existingUser && passwords[phone]) {
         setError('该手机号已注册，请直接登录');
         setLoading(false);
         return;
@@ -578,33 +611,24 @@ const AuthView: React.FC<AuthViewProps> = ({ onLogin }) => {
       const isAuthorized = await checkAuthorization(phone);
       if (!isAuthorized) {
         toast.error('注册失败', '您的手机号未获得授权，请联系管理员');
-        setError('您的手机号未获得授权，请联系管理员添加授权后再注册');
+        setError('未在教职工名单中，请联系园长添加');
         setLoading(false);
         return;
       }
 
-      const newUser: User = {
-        id: Date.now().toString(),
-        name: name.trim(),
-        phone,
-        role,
-        campus,
-        avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${name}`
-      };
+      // 从教职工名单自动获取信息
+      const user = ensureUserExists(phone);
+
+      // 保存密码（与小程序一致的格式）
+      const hashedPwd = btoa(encodeURIComponent(password + '_venus_salt_' + phone));
+      passwords[phone] = hashedPwd;
+      localStorage.setItem('kt_user_passwords', JSON.stringify(passwords));
 
       // 云端注册
-      await cloudRegister(newUser, passwordHash);
-
-      // 本地注册
-      const passwords: Record<string, string> = JSON.parse(localStorage.getItem('kt_user_passwords') || '{}');
-      allUsers.push(newUser);
-      passwords[phone] = passwordHash;
+      await cloudRegister(user, hashPassword(password));
       
-      saveAndSync('kt_all_users', allUsers);
-      localStorage.setItem('kt_user_passwords', JSON.stringify(passwords));
-      
-      toast.success('注册成功', `欢迎加入，${newUser.name}！`);
-      onLogin(newUser);
+      toast.success('注册成功', `欢迎加入，${user.name}！`);
+      onLogin(user);
     }
     
     setLoading(false);
@@ -633,7 +657,7 @@ const AuthView: React.FC<AuthViewProps> = ({ onLogin }) => {
         {/* 头部 - 深绿色 */}
         <div className="p-8 md:p-12 text-center relative" style={{ backgroundColor: '#3d4a32' }}>
           <Logo size="md" hideText light />
-          <p className="text-white/60 text-sm mt-3">自然 · 养育 · 成长</p>
+          <p className="text-white/60 text-sm mt-3">每颗星星都闪亮，每个孩子都很棒</p>
           {/* 云端连接状态 */}
           <div 
             className="absolute top-4 right-4 flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-semibold"
@@ -716,71 +740,7 @@ const AuthView: React.FC<AuthViewProps> = ({ onLogin }) => {
           )}
           
           <form onSubmit={isLogin && loginType === 'sms' ? (e) => { e.preventDefault(); handleSmsLogin(); } : handleSubmit} className="space-y-3 md:space-y-4" noValidate>
-            {!isLogin && (
-              <>
-                <input 
-                  required 
-                  placeholder="您的姓名" 
-                  value={name} 
-                  onChange={e => setName(e.target.value)} 
-                  className="w-full px-4 md:px-5 py-3 md:py-4 bg-slate-50 border-2 border-slate-100 rounded-xl md:rounded-2xl outline-none focus:border-amber-500 font-bold text-base" 
-                />
-                
-                {/* 角色选择 */}
-                <div className="space-y-2">
-                  <p className="text-xs font-bold text-slate-400 px-2">选择您的角色</p>
-                  <div className="grid grid-cols-2 gap-2">
-                    {AVAILABLE_ROLES.map(r => (
-                      <label 
-                        key={r.role}
-                        className={`p-2.5 md:p-3 rounded-lg md:rounded-xl border-2 cursor-pointer transition-all ${
-                          role === r.role 
-                            ? 'border-amber-500 bg-amber-50' 
-                            : 'border-slate-100 hover:border-slate-200'
-                        }`}
-                      >
-                        <input 
-                          type="radio" 
-                          name="role" 
-                          value={r.role} 
-                          checked={role === r.role}
-                          onChange={() => setRole(r.role)}
-                          className="hidden"
-                        />
-                        <div className="flex items-center gap-1.5 md:gap-2 mb-0.5 md:mb-1">
-                          <div className={`p-1 md:p-1.5 rounded-md md:rounded-lg ${r.color}`}>
-                            <r.icon className="w-3.5 h-3.5 md:w-4 md:h-4" />
-                          </div>
-                          <span className="font-bold text-xs md:text-sm text-slate-700">{r.label}</span>
-                        </div>
-                        <p className="text-[9px] md:text-[10px] text-slate-400 hidden md:block">{r.desc}</p>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-                
-                {/* 园区选择 */}
-                {campuses.length > 0 ? (
-                  <div className="relative">
-                    <Building2 className="absolute left-4 md:left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300" />
-                    <select 
-                      value={campus} 
-                      onChange={e => setCampus(e.target.value)} 
-                      className="w-full pl-12 md:pl-14 pr-4 md:pr-5 py-3 md:py-4 bg-slate-50 border-2 border-slate-100 rounded-xl md:rounded-2xl outline-none focus:border-amber-500 font-bold appearance-none cursor-pointer text-base"
-                    >
-                      <option value="">选择所属园区</option>
-                      {campuses.map(c => <option key={c} value={c}>{c}</option>)}
-                    </select>
-                  </div>
-                ) : (
-                  <div className="p-3 md:p-4 bg-amber-50 rounded-xl md:rounded-2xl text-amber-700 text-sm">
-                    <AlertCircle className="w-4 h-4 inline mr-2" />
-                    暂无可选园区，请联系管理员配置
-                  </div>
-                )}
-              </>
-            )}
-            
+            {/* 手机号 */}
             <div className="relative">
               <Phone className="absolute left-4 md:left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300" />
               <input 
@@ -793,82 +753,9 @@ const AuthView: React.FC<AuthViewProps> = ({ onLogin }) => {
                 className="w-full pl-12 md:pl-14 pr-4 md:pr-5 py-3 md:py-4 bg-slate-50 border-2 border-slate-100 rounded-xl md:rounded-2xl outline-none focus:border-amber-500 font-bold text-base" 
               />
             </div>
-            
-            {/* 密码输入（密码登录或注册模式） */}
-            {(!isLogin || loginType === 'password') && (
-              <div className="relative">
-                <Lock className={`absolute left-4 md:left-5 top-1/2 -translate-y-1/2 w-5 h-5 ${passwordError ? 'text-rose-400' : 'text-slate-300'}`} />
-                  <input 
-                    required 
-                  type={showPassword ? 'text' : 'password'}
-                  placeholder={isLogin ? "密码" : "设置密码"} 
-                  value={password} 
-                  onChange={e => { setPassword(e.target.value); setPasswordError(false); }} 
-                  className={`w-full pl-12 md:pl-14 pr-20 md:pr-24 py-3 md:py-4 bg-slate-50 border-2 rounded-xl md:rounded-2xl outline-none focus:border-amber-500 font-bold text-base ${
-                    passwordError ? 'border-rose-400 bg-rose-50' : 'border-slate-100'
-                  }`}
-                />
-                <div className="absolute right-4 md:right-5 top-1/2 -translate-y-1/2 flex items-center gap-1">
-                  {/* 注册时显示密码要求感叹号 */}
-                  {!isLogin && (
-                    <div className="relative z-50">
-                <button 
-                  type="button"
-                        onClick={() => setShowPasswordTip(!showPasswordTip)}
-                        onMouseEnter={() => setShowPasswordTip(true)}
-                        onMouseLeave={() => setShowPasswordTip(false)}
-                        className={`p-1 rounded-full transition-colors ${passwordError ? 'text-rose-500' : 'text-amber-500 hover:text-amber-600'}`}
-                      >
-                        <Info className="w-4 h-4" />
-                      </button>
-                      {/* 密码要求提示框 */}
-                      {showPasswordTip && (
-                        <div className="absolute right-0 bottom-full mb-2 w-48 p-3 bg-slate-800 text-white text-xs rounded-xl shadow-2xl z-[100]">
-                          <p className="font-bold mb-2">密码要求：</p>
-                          <ul className="space-y-1">
-                            <li className={password.length >= 6 ? 'text-emerald-400' : 'text-slate-400'}>
-                              {password.length >= 6 ? '✓' : '○'} 至少6位字符
-                            </li>
-                            <li className={/[a-zA-Z]/.test(password) ? 'text-emerald-400' : 'text-slate-400'}>
-                              {/[a-zA-Z]/.test(password) ? '✓' : '○'} 包含英文字母(a-z)
-                            </li>
-                            <li className={/[0-9]/.test(password) ? 'text-emerald-400' : 'text-slate-400'}>
-                              {/[0-9]/.test(password) ? '✓' : '○'} 包含数字(0-9)
-                            </li>
-                          </ul>
-                          <div className="absolute -bottom-1 right-3 w-2 h-2 bg-slate-800 rotate-45"></div>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="text-slate-400 hover:text-slate-600 p-1"
-                  >
-                    {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                </button>
-                </div>
-              </div>
-            )}
-            
-            {/* 确认密码（仅注册模式） */}
-            {!isLogin && (
-              <div className="relative">
-                <Lock className="absolute left-4 md:left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300" />
-                <input 
-                  required 
-                  type={showPassword ? 'text' : 'password'}
-                  placeholder="确认密码" 
-                  value={confirmPassword} 
-                  onChange={e => setConfirmPassword(e.target.value)} 
-                  className="w-full pl-12 md:pl-14 pr-4 md:pr-5 py-3 md:py-4 bg-slate-50 border-2 border-slate-100 rounded-xl md:rounded-2xl outline-none focus:border-amber-500 font-bold text-base" 
-                />
-              </div>
-            )}
 
-            {/* 验证码输入（验证码登录模式） */}
-            {isLogin && loginType === 'sms' && (
+            {/* 验证码输入（验证码登录 & 注册模式） */}
+            {(!isLogin || (isLogin && loginType === 'sms')) && (
               <div className="relative">
                 <ShieldCheck className="absolute left-4 md:left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300" />
                 <input 
@@ -895,6 +782,43 @@ const AuthView: React.FC<AuthViewProps> = ({ onLogin }) => {
                 </button>
               </div>
             )}
+            
+            {/* 密码输入（密码登录 & 注册模式） */}
+            {(!isLogin || loginType === 'password') && (
+              <div className="relative">
+                <Lock className="absolute left-4 md:left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300" />
+                <input 
+                  required 
+                  type={showPassword ? 'text' : 'password'}
+                  placeholder={isLogin ? "密码" : "设置密码（至少6位）"} 
+                  value={password} 
+                  onChange={e => setPassword(e.target.value)} 
+                  className="w-full pl-12 md:pl-14 pr-14 py-3 md:py-4 bg-slate-50 border-2 border-slate-100 rounded-xl md:rounded-2xl outline-none focus:border-amber-500 font-bold text-base"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-4 md:right-5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1"
+                >
+                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                </button>
+              </div>
+            )}
+            
+            {/* 确认密码（仅注册模式） */}
+            {!isLogin && (
+              <div className="relative">
+                <Lock className="absolute left-4 md:left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300" />
+                <input 
+                  required 
+                  type={showPassword ? 'text' : 'password'}
+                  placeholder="确认密码" 
+                  value={confirmPassword} 
+                  onChange={e => setConfirmPassword(e.target.value)} 
+                  className="w-full pl-12 md:pl-14 pr-4 md:pr-5 py-3 md:py-4 bg-slate-50 border-2 border-slate-100 rounded-xl md:rounded-2xl outline-none focus:border-amber-500 font-bold text-base" 
+                />
+              </div>
+            )}
 
             <button 
               type="submit" 
@@ -906,9 +830,18 @@ const AuthView: React.FC<AuthViewProps> = ({ onLogin }) => {
               ) : (
                 <LogIn className="w-5 h-5" />
               )}
-              {isLogin ? '登录' : '注册'}
+              {isLogin ? '登录' : '快捷注册'}
             </button>
           </form>
+          
+          {/* 注册提示 */}
+          {!isLogin && (
+            <div className="p-2.5 md:p-3 bg-slate-50 rounded-lg md:rounded-xl">
+              <p className="text-xs text-slate-400 leading-relaxed">
+                输入教职工名单中的手机号即可快捷注册，姓名、角色、园区将自动从名单获取
+              </p>
+            </div>
+          )}
           
           {/* 管理员提示 */}
           {isLogin && (
@@ -926,6 +859,68 @@ const AuthView: React.FC<AuthViewProps> = ({ onLogin }) => {
           </p>
         </div>
       </div>
+
+      {/* 设置密码弹窗 - 验证码登录后首次设置 */}
+      {showSetPasswordModal && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden" style={{ backgroundColor: '#faf8f5' }}>
+            <div className="p-6 text-center" style={{ backgroundColor: '#3d4a32' }}>
+              <Lock className="w-10 h-10 text-white/80 mx-auto mb-2" />
+              <h3 className="text-white font-bold text-lg">设置登录密码</h3>
+              <p className="text-white/60 text-sm mt-1">设置后可使用密码快捷登录</p>
+            </div>
+            
+            <div className="p-6 space-y-4">
+              <div className="p-3 bg-amber-50 rounded-xl text-xs text-amber-700 font-medium">
+                您尚未设置登录密码，建议设置一个方便下次快捷登录
+              </div>
+              
+              <div className="relative">
+                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300" />
+                <input 
+                  type={showPassword ? 'text' : 'password'}
+                  placeholder="设置密码（至少6位）" 
+                  value={newPassword} 
+                  onChange={e => setNewPassword(e.target.value)} 
+                  className="w-full pl-12 pr-14 py-3.5 bg-slate-50 border-2 border-slate-100 rounded-xl outline-none focus:border-amber-500 font-bold text-base"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1"
+                >
+                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                </button>
+              </div>
+              
+              <div className="relative">
+                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300" />
+                <input 
+                  type="password"
+                  placeholder="确认密码" 
+                  value={newPasswordConfirm} 
+                  onChange={e => setNewPasswordConfirm(e.target.value)} 
+                  className="w-full pl-12 pr-4 py-3.5 bg-slate-50 border-2 border-slate-100 rounded-xl outline-none focus:border-amber-500 font-bold text-base"
+                />
+              </div>
+              
+              <button 
+                onClick={handleSetPasswordAndLogin}
+                className="w-full bg-amber-600 text-white font-bold py-4 rounded-xl shadow-lg shadow-amber-200 hover:bg-amber-700 active:scale-[0.98] transition-all"
+              >
+                设置密码并登录
+              </button>
+              
+              <button 
+                onClick={handleSkipSetPassword}
+                className="w-full text-slate-400 text-sm font-medium py-2 hover:text-slate-500 transition-colors"
+              >
+                跳过，稍后设置
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

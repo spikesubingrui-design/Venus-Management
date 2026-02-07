@@ -417,16 +417,40 @@ export async function initializeFromAliyun(
       const isCloudAuthority = CLOUD_AUTHORITY_KEYS.includes(key);
 
       if (isCloudAuthority) {
-        // 核心数据：始终从云端下载最新版本
-        const cloudData = await downloadFromAliyun<{ id: string; name?: string }>(key);
+        // 核心数据：从云端下载，但与本地合并（防止丢失本地新增）
+        const cloudData = await downloadFromAliyun<{ id: string; name?: string; phone?: string }>(key);
         if (cloudData.length > 0) {
           const dedupedCloud = deduplicateData(cloudData);
-          localStorage.setItem(key, JSON.stringify(dedupedCloud));
-          console.log(`[AliyunOSS] 📥 ${key}: 从云端下载最新数据 ${dedupedCloud.length} 条`);
-          results[key] = { count: dedupedCloud.length };
+          
+          // 合并本地独有数据（本地新增但还未同步到云端的）
+          if (localData.length > 0) {
+            const cloudIds = new Set(dedupedCloud.map((d: any) => d.phone || d.id));
+            const localOnly = localData.filter((d: any) => {
+              const k = d.phone || d.id;
+              return k && !cloudIds.has(k);
+            });
+            
+            if (localOnly.length > 0) {
+              const merged = [...dedupedCloud, ...localOnly];
+              localStorage.setItem(key, JSON.stringify(merged));
+              console.log(`[AliyunOSS] 🔄 ${key}: 合并 云端${dedupedCloud.length} + 本地新增${localOnly.length} = ${merged.length} 条`);
+              // 回传合并后的数据到云端
+              uploadToAliyun(key, merged);
+              results[key] = { count: merged.length };
+            } else {
+              localStorage.setItem(key, JSON.stringify(dedupedCloud));
+              console.log(`[AliyunOSS] 📥 ${key}: 从云端下载最新数据 ${dedupedCloud.length} 条`);
+              results[key] = { count: dedupedCloud.length };
+            }
+          } else {
+            localStorage.setItem(key, JSON.stringify(dedupedCloud));
+            console.log(`[AliyunOSS] 📥 ${key}: 从云端下载最新数据 ${dedupedCloud.length} 条`);
+            results[key] = { count: dedupedCloud.length };
+          }
         } else if (localData.length > 0) {
-          // 云端为空但本地有数据，保留本地数据（防止误清空）
-          console.log(`[AliyunOSS] ⚠️ ${key}: 云端为空，保留本地数据 ${localData.length} 条`);
+          // 云端为空但本地有数据，保留本地数据并上传到云端
+          console.log(`[AliyunOSS] ⚠️ ${key}: 云端为空，保留本地数据 ${localData.length} 条并上传`);
+          uploadToAliyun(key, localData);
           results[key] = { count: localData.length };
         } else {
           results[key] = { count: 0 };
