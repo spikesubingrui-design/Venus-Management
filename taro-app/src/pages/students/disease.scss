@@ -1,0 +1,488 @@
+.disease-page {
+  min-height: 100vh;
+  background: #fef2f2;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 24rpx;
+  background: linear-gradient(135deg, #dc2626, #b91c1c);
+  
+  .title {
+    font-size: 34rpx;
+    font-weight: bold;
+    color: #ffffff;
+  }
+  
+  .add-btn {
+    padding: 16rpx 24rpx;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 12rpx;
+    
+    text {
+      font-size: 26rpx;
+      color: #ffffff;
+      font-weight: bold;
+    }
+    
+    &:active {
+      opacity: 0.8;
+    }
+  }
+}
+
+.stats-bar {
+  display: flex;
+  background: #ffffff;
+  padding: 24rpx;
+  border-bottom: 2rpx solid #fee2e2;
+  
+  .stat-item {
+    flex: 1;
+    text-align: center;
+    
+    .number {
+      font-size: 40rpx;
+      font-weight: bold;
+      display: block;
+      
+      &.orange { color: #f59e0b; }
+      &.red { color: #ef4444; }
+      &.green { color: #22c55e; }
+    }
+    
+    .label {
+      font-size: 24rpx;
+      color: #64748b;
+    }
+  }
+}
+
+.tabs {
+  display: flex;
+  background: #ffffff;
+  padding: 0 24rpx;
+  
+  .tab {
+    flex: 1;
+    padding: 24rpx 0;
+    text-align: center;
+    border-bottom: 4rpx solid transparent;
+    
+    text {
+      font-size: 28rpx;
+      color: #64748b;
+    }
+    
+    &.active {
+      border-bottom-color: #dc2626;
+      
+      text {
+        color: #dc2626;
+        font-weight: bold;
+      }
+    }
+  }
+}
+
+.record-list {
+  height: calc(100vh - 340rpx);
+  padding: 16rpx 24rpx;
+}
+
+.record-card {
+  background: #ffffff;
+  border-radius: 16rpx;
+  margin-bottom: 16rpx;
+  overflow: hidden;
+  
+  .card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20rpx;
+    background: #fef2f2;
+    border-bottom: 2rpx solid #fee2e2;
+    
+    .student-info {
+      .name {
+        font-size: 30rpx;
+        font-weight: bold;
+        color: #1e293b;
+        display: block;
+      }
+      
+      .class {
+        font-size: 24rpx;
+        color: #64748b;
+      }
+    }
+    
+    .status-tag {
+      padding: 8rpx 20rpx;
+      border-radius: 20rpx;
+      
+      text {
+        font-size: 24rpx;
+        font-weight: bold;
+      }
+      
+      &.treating {
+        background: #fef3c7;
+        
+        text { color: #b45309; }
+      }
+      
+      &.isolated {
+        background: #fee2e2;
+        
+        text { color: #b91c1c; }
+      }
+      
+      &.recovered {
+        background: #dcfce7;
+        
+        text { color: #15803d; }
+      }
+    }
+  }
+  
+  .card-body {
+    padding: 20rpx;
+    
+    .info-row {
+      display: flex;
+      align-items: flex-start;
+      margin-bottom: 12rpx;
+      
+      &:last-child {
+        margin-bottom: 0;
+      }
+      
+      .label {
+        font-size: 24rpx;
+        color: #94a3b8;
+        width: 140rpx;
+        flex-shrink: 0;
+      }
+      
+      .value {
+        font-size: 26rpx;
+        color: #1e293b;
+        flex: 1;
+        
+        &.disease-type {
+          color: #dc2626;
+          font-weight: bold;
+        }
+        
+        &.green {
+          color: #15803d;
+        }
+      }
+      
+      .symptoms {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8rpx;
+        
+        .symptom-tag {
+          font-size: 22rpx;
+          padding: 4rpx 12rpx;
+          background: #f1f5f9;
+          color: #64748b;
+          border-radius: 8rpx;
+        }
+      }
+    }
+  }
+  
+  .card-actions {
+    display: flex;
+    gap: 12rpx;
+    padding: 16rpx 20rpx;
+    background: #fafafa;
+    border-top: 2rpx solid #f1f5f9;
+    
+    .action-btn {
+      flex: 1;
+      padding: 16rpx;
+      border-radius: 10rpx;
+      text-align: center;
+      
+      text {
+        font-size: 26rpx;
+        font-weight: bold;
+      }
+      
+      &.isolate {
+        background: #fef3c7;
+        
+        text { color: #b45309; }
+      }
+      
+      &.recover {
+        background: #dcfce7;
+        
+        text { color: #15803d; }
+      }
+      
+      &:active {
+        opacity: 0.8;
+      }
+    }
+  }
+}
+
+.empty-state {
+  padding: 100rpx 0;
+  text-align: center;
+  
+  .icon {
+    font-size: 80rpx;
+    display: block;
+    margin-bottom: 16rpx;
+  }
+  
+  .text {
+    font-size: 28rpx;
+    color: #94a3b8;
+  }
+}
+
+// 录入弹窗
+.record-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  
+  .modal-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+  }
+  
+  .modal-content {
+    position: relative;
+    width: 90%;
+    max-width: 650rpx;
+    background: #ffffff;
+    border-radius: 24rpx;
+    overflow: hidden;
+    max-height: 85vh;
+  }
+  
+  .modal-header {
+    padding: 32rpx;
+    background: linear-gradient(135deg, #dc2626, #b91c1c);
+    
+    .modal-title {
+      font-size: 34rpx;
+      font-weight: bold;
+      color: #ffffff;
+    }
+  }
+  
+  .modal-body {
+    padding: 24rpx;
+    max-height: 60vh;
+    
+    .form-item {
+      margin-bottom: 24rpx;
+      
+      .label {
+        font-size: 26rpx;
+        color: #64748b;
+        display: block;
+        margin-bottom: 12rpx;
+      }
+      
+      .input {
+        width: 100%;
+        height: 80rpx;
+        background: #f8fafc;
+        border-radius: 12rpx;
+        padding: 0 20rpx;
+        font-size: 28rpx;
+        border: 2rpx solid #e2e8f0;
+      }
+      
+      .student-picker, .date-picker {
+        height: 80rpx;
+        background: #f8fafc;
+        border-radius: 12rpx;
+        padding: 0 20rpx;
+        display: flex;
+        align-items: center;
+        border: 2rpx solid #e2e8f0;
+        
+        text {
+          font-size: 28rpx;
+          color: #1e293b;
+          
+          &.placeholder {
+            color: #94a3b8;
+          }
+        }
+      }
+      
+      .disease-options, .symptom-options, .status-options {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12rpx;
+        
+        .option {
+          padding: 12rpx 20rpx;
+          border-radius: 20rpx;
+          background: #f8fafc;
+          border: 2rpx solid #e2e8f0;
+          
+          text {
+            font-size: 26rpx;
+            color: #64748b;
+          }
+          
+          &.active {
+            background: #fee2e2;
+            border-color: #dc2626;
+            
+            text {
+              color: #dc2626;
+              font-weight: bold;
+            }
+          }
+        }
+      }
+    }
+  }
+  
+  .modal-footer {
+    display: flex;
+    padding: 24rpx;
+    gap: 16rpx;
+    background: #f8fafc;
+    
+    .btn {
+      flex: 1;
+      padding: 24rpx;
+      border-radius: 12rpx;
+      text-align: center;
+      
+      text {
+        font-size: 28rpx;
+        font-weight: bold;
+      }
+      
+      &.cancel {
+        background: #ffffff;
+        border: 2rpx solid #e2e8f0;
+        
+        text { color: #64748b; }
+      }
+      
+      &.confirm {
+        background: linear-gradient(135deg, #dc2626, #b91c1c);
+        
+        text { color: #ffffff; }
+      }
+      
+      &:active {
+        opacity: 0.8;
+      }
+    }
+  }
+}
+
+// 学生选择弹窗
+.student-picker-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1001;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  
+  .modal-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+  }
+  
+  .picker-content {
+    position: relative;
+    width: 100%;
+    background: #ffffff;
+    border-radius: 24rpx 24rpx 0 0;
+    max-height: 70vh;
+  }
+  
+  .picker-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 24rpx;
+    border-bottom: 2rpx solid #f1f5f9;
+    
+    .picker-title {
+      font-size: 32rpx;
+      font-weight: bold;
+      color: #1e293b;
+    }
+    
+    .close-btn {
+      font-size: 36rpx;
+      color: #94a3b8;
+      padding: 8rpx;
+    }
+  }
+  
+  .student-list {
+    max-height: 60vh;
+    
+    .student-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 24rpx;
+      border-bottom: 2rpx solid #f1f5f9;
+      
+      .name {
+        font-size: 30rpx;
+        font-weight: bold;
+        color: #1e293b;
+      }
+      
+      .class {
+        font-size: 26rpx;
+        color: #64748b;
+      }
+      
+      &.selected {
+        background: #fef2f2;
+        
+        .name { color: #dc2626; }
+      }
+      
+      &:active {
+        background: #f8fafc;
+      }
+    }
+  }
+}
