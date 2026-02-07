@@ -315,6 +315,15 @@ const StaffView: React.FC<StaffViewProps> = ({ currentUser }) => {
       setSuccessMessage(`教职工${pendingData.isUpdate ? '更新' : '录入'}成功，已电子留存`);
     } else if (pendingData.type === 'delete') {
       const deletedTeacher = teachers.find(t => t.id === pendingData.data);
+      // 二次确认：删除操作需要再次确认，防止误操作
+      const confirmed = window.confirm(
+        `⚠️ 再次确认：确定要永久删除「${deletedTeacher?.name || '该教职工'}」吗？\n\n此操作将同步到所有端（网站和小程序），且无法撤销。`
+      );
+      if (!confirmed) {
+        setShowConfirmModal(false);
+        setPendingData(null);
+        return;
+      }
       const updated = teachers.filter(t => t.id !== pendingData.data);
       setTeachers(updated);
       syncTeachersToOssFormat(updated);
