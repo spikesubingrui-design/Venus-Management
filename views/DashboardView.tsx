@@ -50,22 +50,47 @@ const DashboardView: React.FC<DashboardViewProps> = ({ user, onNavigate }) => {
       setStudents(deduped);
     }
     
-    const savedTeachers = localStorage.getItem('kt_teachers');
-    if (savedTeachers) {
-      const parsedT = JSON.parse(savedTeachers);
-      const seenT = new Map();
-      const dedupedT = parsedT.filter((t: any) => {
-        const key = t.name 
-          ? (t.phone ? `${t.name}_${t.phone}` : t.assignedClass ? `${t.name}_${t.assignedClass}` : t.name)
-          : t.id;
-        if (!key || seenT.has(key)) return false;
-        seenT.set(key, true);
-        return true;
+    // 同时从 kt_teachers 和 kt_staff 加载教职工，取更完整的数据
+    const webTeachers: any[] = JSON.parse(localStorage.getItem('kt_teachers') || '[]');
+    const ossStaff: any[] = JSON.parse(localStorage.getItem('kt_staff') || '[]');
+    
+    // 如果 kt_staff 有更多数据，说明 kt_teachers 落后了，进行合并
+    if (ossStaff.length > webTeachers.length) {
+      const existingPhones = new Set(webTeachers.map((t: any) => t.phone || t.id));
+      const missing = ossStaff.filter((s: any) => {
+        const k = s.phone || s.id;
+        return k && !existingPhones.has(k);
       });
-      setTeachers(dedupedT);
-      if (dedupedT.length !== parsedT.length) {
-        localStorage.setItem('kt_teachers', JSON.stringify(dedupedT));
+      if (missing.length > 0) {
+        const converted = missing.map((s: any) => ({
+          id: s.id, name: s.name, role: s.position || s.role || '',
+          phone: s.phone || '', assignedClass: Array.isArray(s.assignedClasses) ? s.assignedClasses[0] || s.class || '' : s.class || '',
+          campus: s.campus || '', hireDate: s.hireDate || '', status: s.status || 'active',
+          avatar: s.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(s.name || '')}&background=4A90A4&color=fff&size=128`,
+          performanceScore: 95, education: s.education || '本科', certificates: [],
+          _ossRole: s.role, _ossPosition: s.position, _ossClass: s.class,
+          _ossAssignedClasses: s.assignedClasses, _ossCampus: s.campus, _ossGender: s.gender,
+        }));
+        const merged = [...webTeachers, ...converted];
+        localStorage.setItem('kt_teachers', JSON.stringify(merged));
+        console.log(`[Dashboard] 🔄 kt_teachers 从 kt_staff 补充: +${missing.length} → ${merged.length} 条`);
       }
+    }
+    
+    // 重新读取合并后的数据
+    const finalTeachers: any[] = JSON.parse(localStorage.getItem('kt_teachers') || '[]');
+    const seenT = new Map();
+    const dedupedT = finalTeachers.filter((t: any) => {
+      const key = t.name 
+        ? (t.phone ? `${t.name}_${t.phone}` : t.assignedClass ? `${t.name}_${t.assignedClass}` : t.name)
+        : t.id;
+      if (!key || seenT.has(key)) return false;
+      seenT.set(key, true);
+      return true;
+    });
+    setTeachers(dedupedT);
+    if (dedupedT.length !== finalTeachers.length) {
+      localStorage.setItem('kt_teachers', JSON.stringify(dedupedT));
     }
     
     const savedAttendance = localStorage.getItem(`kt_attendance_${today}`);
