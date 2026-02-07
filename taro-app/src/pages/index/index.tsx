@@ -129,8 +129,52 @@ export default function Index() {
     const allStudents: Student[] = Taro.getStorageSync('kt_students') || []
     const students = filterStudentsByPermission(allStudents)
     
-    // 教职工数据
-    const teachers = Taro.getStorageSync('kt_staff') || []
+    // 教职工数据：从 kt_staff, kt_teachers, kt_authorized_phones 三个来源合并
+    let teachers: any[] = Taro.getStorageSync('kt_staff') || []
+    const webTeachers: any[] = Taro.getStorageSync('kt_teachers') || []
+    const authPhones: any[] = Taro.getStorageSync('kt_authorized_phones') || []
+    
+    // 从 kt_teachers 补充到 kt_staff
+    if (webTeachers.length > 0) {
+      const existingPhones = new Set(teachers.map((t: any) => t.phone || t.id))
+      const missingFromWeb = webTeachers.filter((t: any) => {
+        const k = t.phone || t.id
+        return k && !existingPhones.has(k)
+      })
+      if (missingFromWeb.length > 0) {
+        teachers = [...teachers, ...missingFromWeb]
+        console.log(`[Index] 从 kt_teachers 补充: +${missingFromWeb.length}`)
+      }
+    }
+    
+    // 从 kt_authorized_phones 补充（非家长角色）
+    if (authPhones.length > 0) {
+      const existingPhones2 = new Set(teachers.map((t: any) => t.phone || t.id))
+      const nonParent = authPhones.filter((p: any) => {
+        const phone = typeof p === 'string' ? p : p.phone
+        const role = typeof p === 'object' ? (p.role || '') : ''
+        return phone && role !== 'PARENT' && !existingPhones2.has(phone)
+      })
+      if (nonParent.length > 0) {
+        const converted = nonParent.map((p: any) => {
+          const phone = typeof p === 'string' ? p : p.phone
+          const name = typeof p === 'object' ? (p.name || phone) : phone
+          return {
+            id: `staff_${phone}_${Date.now()}`, name, phone,
+            position: typeof p === 'object' ? (p.position || p.role || '') : '',
+            class: typeof p === 'object' ? (p.assignedClass || '') : '',
+            campus: typeof p === 'object' ? (p.campus || '') : '',
+            role: typeof p === 'object' ? (p.role || '') : '',
+            assignedClasses: typeof p === 'object' && p.assignedClass ? [p.assignedClass] : [],
+            status: 'active',
+          }
+        })
+        teachers = [...teachers, ...converted]
+        // 同步保存到 kt_staff
+        Taro.setStorageSync('kt_staff', teachers)
+        console.log(`[Index] 从 kt_authorized_phones 补充: +${nonParent.length}，已同步到 kt_staff`)
+      }
+    }
     
     // 今日考勤 - 先加载本地数据
     let todayAttendance = Taro.getStorageSync(`kt_attendance_${today}`) || {}

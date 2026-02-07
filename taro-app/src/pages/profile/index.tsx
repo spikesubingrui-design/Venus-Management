@@ -241,8 +241,46 @@ export default function Profile() {
 
   const loadLocalDataCount = () => {
     const students = Taro.getStorageSync(STORAGE_KEYS.STUDENTS) || []
-    const staff = Taro.getStorageSync(STORAGE_KEYS.STAFF) || []
-    setLocalDataCount({ students: students.length, staff: staff.length })
+    // 从 kt_staff, kt_teachers, kt_authorized_phones 三个来源合并计算教职工人数
+    let staff: any[] = Taro.getStorageSync(STORAGE_KEYS.STAFF) || []
+    const webTeachers: any[] = Taro.getStorageSync('kt_teachers') || []
+    const authPhones: any[] = Taro.getStorageSync(STORAGE_KEYS.AUTHORIZED_PHONES) || []
+    
+    // 从 kt_teachers 补充
+    if (webTeachers.length > 0) {
+      const existingPhones = new Set(staff.map((s: any) => s.phone || s.id))
+      const missing = webTeachers.filter((t: any) => {
+        const k = t.phone || t.id
+        return k && !existingPhones.has(k)
+      })
+      if (missing.length > 0) {
+        staff = [...staff, ...missing]
+      }
+    }
+    
+    // 从 kt_authorized_phones 补充（非家长角色）
+    if (authPhones.length > 0) {
+      const existingPhones2 = new Set(staff.map((s: any) => s.phone || s.id))
+      const nonParent = authPhones.filter((p: any) => {
+        const phone = typeof p === 'string' ? p : p.phone
+        const role = typeof p === 'object' ? (p.role || '') : ''
+        return phone && role !== 'PARENT' && !existingPhones2.has(phone)
+      })
+      if (nonParent.length > 0) {
+        staff = [...staff, ...nonParent]
+      }
+    }
+    
+    // 去重
+    const seen = new Set<string>()
+    const deduped = staff.filter((s: any) => {
+      const key = typeof s === 'string' ? s : (s.phone || s.id || s.name)
+      if (!key || seen.has(key)) return false
+      seen.add(key)
+      return true
+    })
+    
+    setLocalDataCount({ students: students.length, staff: deduped.length })
   }
 
   const checkCloud = async () => {

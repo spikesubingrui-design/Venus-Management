@@ -189,8 +189,65 @@ export default function Stats() {
   }
 
   const loadTeachers = () => {
-    const data = Taro.getStorageSync('kt_teachers') || []
-    setTeachers(Array.isArray(data) ? data : [])
+    // 从 kt_teachers, kt_staff, kt_authorized_phones 三个来源合并
+    let currentTeachers: any[] = Taro.getStorageSync('kt_teachers') || []
+    const ossStaff: any[] = Taro.getStorageSync('kt_staff') || []
+    const authPhones: any[] = Taro.getStorageSync('kt_authorized_phones') || []
+    
+    // 从 kt_staff 补充
+    if (ossStaff.length > 0) {
+      const existingPhones = new Set(currentTeachers.map((t: any) => t.phone || t.id))
+      const missing = ossStaff.filter((s: any) => {
+        const k = s.phone || s.id
+        return k && !existingPhones.has(k)
+      })
+      if (missing.length > 0) {
+        const converted = missing.map((s: any) => ({
+          id: s.id, name: s.name, role: s.position || s.role || '',
+          phone: s.phone || '', class: s.class || '',
+          assignedClass: Array.isArray(s.assignedClasses) ? s.assignedClasses[0] || s.class || '' : s.class || '',
+          campus: s.campus || '', status: s.status || 'active',
+        }))
+        currentTeachers = [...currentTeachers, ...converted]
+        console.log(`[Stats] 从 kt_staff 补充: +${missing.length}`)
+      }
+    }
+    
+    // 从 kt_authorized_phones 补充（非家长角色）
+    if (authPhones.length > 0) {
+      const existingPhones2 = new Set(currentTeachers.map((t: any) => t.phone || t.id))
+      const nonParent = authPhones.filter((p: any) => {
+        const phone = typeof p === 'string' ? p : p.phone
+        const role = typeof p === 'object' ? (p.role || '') : ''
+        return phone && role !== 'PARENT' && !existingPhones2.has(phone)
+      })
+      if (nonParent.length > 0) {
+        const converted = nonParent.map((p: any) => {
+          const phone = typeof p === 'string' ? p : p.phone
+          const name = typeof p === 'object' ? (p.name || phone) : phone
+          return {
+            id: `staff_${phone}_${Date.now()}`, name, phone,
+            role: typeof p === 'object' ? (p.position || p.role || '') : '',
+            class: typeof p === 'object' ? (p.assignedClass || '') : '',
+            campus: typeof p === 'object' ? (p.campus || '') : '',
+            status: 'active',
+          }
+        })
+        currentTeachers = [...currentTeachers, ...converted]
+        console.log(`[Stats] 从 kt_authorized_phones 补充: +${nonParent.length}`)
+      }
+    }
+    
+    // 去重（按 phone 去重）
+    const seen = new Set<string>()
+    const deduped = currentTeachers.filter((t: any) => {
+      const key = t.phone || t.id || t.name
+      if (!key || seen.has(key)) return false
+      seen.add(key)
+      return true
+    })
+    
+    setTeachers(Array.isArray(deduped) ? deduped : [])
   }
 
   const loadStats = () => {
