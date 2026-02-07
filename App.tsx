@@ -49,7 +49,7 @@ export const Logo: React.FC<{ size?: 'sm' | 'md' | 'lg', hideText?: boolean, lig
       {!hideText && (
         <div className="flex flex-col">
           <span className={`font-bold ${size === 'lg' ? 'text-2xl' : 'text-lg'} ${light ? 'text-amber-50' : 'text-[#4a5d3a]'} tracking-tight`} style={{ fontFamily: "'Noto Serif SC', serif" }}>金星幼儿园</span>
-          <span className={`text-[8px] ${light ? 'text-amber-200/80' : 'text-[#8b7355]'} font-medium tracking-wider uppercase`}>KIDDA VENUS KINDERGARTEN</span>
+          <span className={`text-[8px] ${light ? 'text-amber-200/80' : 'text-[#8b7355]'} font-medium tracking-normal`}>奇德金星 · KIDDA VENUS</span>
         </div>
       )}
     </div>
