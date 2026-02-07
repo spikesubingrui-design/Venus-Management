@@ -207,10 +207,51 @@ const SystemManagementView: React.FC<SystemManagementViewProps> = ({ currentUser
       created_at: new Date().toISOString()
     };
     
-    // 本地添加
+    // 本地添加授权手机号
     const updated = [...authorizedPhones, newAuthorizedPhone];
     setAuthorizedPhones(updated);
     saveAndSync('kt_authorized_phones', updated);
+    
+    // 同时添加到 kt_staff 和 kt_teachers（非家长角色）
+    if (newPhoneRole !== 'PARENT') {
+      const staffList: any[] = JSON.parse(localStorage.getItem('kt_staff') || '[]');
+      const teacherList: any[] = JSON.parse(localStorage.getItem('kt_teachers') || '[]');
+      
+      // 检查是否已存在
+      const existsInStaff = staffList.some((s: any) => s.phone === cleanPhone);
+      const existsInTeachers = teacherList.some((t: any) => t.phone === cleanPhone);
+      
+      if (!existsInStaff) {
+        const newStaffEntry = {
+          id: `staff_${cleanPhone}_${Date.now()}`,
+          name: newPhoneName, phone: cleanPhone, gender: newPhoneGender,
+          class: newPhoneClass, className: newPhoneClass,
+          position: newPhonePosition, campus: newPhoneCampus,
+          role: newPhoneRole, assignedClasses: newPhoneClass ? [newPhoneClass] : [],
+          hireDate: new Date().toISOString().split('T')[0], status: 'active',
+        };
+        staffList.push(newStaffEntry);
+        saveAndSync('kt_staff', staffList);
+        console.log(`[SystemMgmt] ✅ 同步新增到 kt_staff: ${newPhoneName}`);
+      }
+      
+      if (!existsInTeachers) {
+        const newTeacherEntry = {
+          id: `staff_${cleanPhone}_${Date.now()}`,
+          name: newPhoneName, phone: cleanPhone, role: newPhonePosition || newPhoneRole,
+          assignedClass: newPhoneClass, campus: newPhoneCampus,
+          hireDate: new Date().toISOString().split('T')[0], status: 'active',
+          avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(newPhoneName)}&background=${newPhoneGender === '男' ? '4A90A4' : 'E879A0'}&color=fff&size=128`,
+          performanceScore: 95, education: '本科', certificates: [],
+          _ossRole: newPhoneRole, _ossPosition: newPhonePosition,
+          _ossClass: newPhoneClass, _ossCampus: newPhoneCampus, _ossGender: newPhoneGender,
+        };
+        teacherList.push(newTeacherEntry);
+        saveAndSync('kt_teachers', teacherList);
+        console.log(`[SystemMgmt] ✅ 同步新增到 kt_teachers: ${newPhoneName}`);
+      }
+    }
+    
     setNewPhone('');
     setNewPhoneName('');
     setNewPhonePosition('');
