@@ -504,7 +504,7 @@ export async function initializeFromAliyun(
       console.log(`[AliyunOSS] kt_staff 去重: ${rawOssStaff.length} → ${ossStaff.length}`);
     }
     if (ossStaff.length > 0) {
-      const webTeachers = ossStaff.map((s: any) => ({
+      const convertedTeachers = ossStaff.map((s: any) => ({
         id: s.id,
         name: s.name,
         role: s.position || s.role || '',  // position是中文角色名（园长）, role是系统角色（ADMIN）
@@ -525,8 +525,27 @@ export async function initializeFromAliyun(
         _ossCampus: s.campus,
         _ossGender: s.gender,
       }));
-      localStorage.setItem('kt_teachers', JSON.stringify(webTeachers));
-      console.log(`[AliyunOSS] 🔄 kt_staff → kt_teachers 同步完成: ${webTeachers.length} 条`);
+      
+      // 合并本地 kt_teachers 中可能存在的新增数据（防止覆盖本地新增）
+      const existingWebTeachers: any[] = JSON.parse(localStorage.getItem('kt_teachers') || '[]');
+      if (existingWebTeachers.length > 0) {
+        const convertedIds = new Set(convertedTeachers.map((t: any) => t.phone || t.id));
+        const localOnlyTeachers = existingWebTeachers.filter((t: any) => {
+          const k = t.phone || t.id;
+          return k && !convertedIds.has(k);
+        });
+        if (localOnlyTeachers.length > 0) {
+          const mergedTeachers = [...convertedTeachers, ...localOnlyTeachers];
+          localStorage.setItem('kt_teachers', JSON.stringify(mergedTeachers));
+          console.log(`[AliyunOSS] 🔄 kt_staff → kt_teachers 合并完成: 转换${convertedTeachers.length} + 本地新增${localOnlyTeachers.length} = ${mergedTeachers.length} 条`);
+        } else {
+          localStorage.setItem('kt_teachers', JSON.stringify(convertedTeachers));
+          console.log(`[AliyunOSS] 🔄 kt_staff → kt_teachers 同步完成: ${convertedTeachers.length} 条`);
+        }
+      } else {
+        localStorage.setItem('kt_teachers', JSON.stringify(convertedTeachers));
+        console.log(`[AliyunOSS] 🔄 kt_staff → kt_teachers 同步完成: ${convertedTeachers.length} 条`);
+      }
     }
   } catch (err) {
     console.error('[AliyunOSS] kt_teachers 同步失败:', err);
