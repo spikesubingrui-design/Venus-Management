@@ -162,10 +162,16 @@ const StaffView: React.FC<StaffViewProps> = ({ currentUser }) => {
       }
     }
 
-    // 然后从云端拉取最新数据（异步，确保小程序新增的老师能同步过来）
-    if (isAliyunConfigured) {
-      downloadFromAliyun('kt_staff').then(cloudStaff => {
+    // 从云端拉取最新数据（直接 fetch OSS 公开 URL，不依赖 SDK，更可靠）
+    const ossUrl = 'https://venus-data.oss-cn-beijing.aliyuncs.com/jinxing-edu/kt_staff.json';
+    fetch(ossUrl + '?t=' + Date.now())
+      .then(res => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res.json();
+      })
+      .then((cloudStaff: any[]) => {
         if (cloudStaff && cloudStaff.length > 0) {
+          console.log(`[StaffView] 云端下载成功: ${cloudStaff.length}条`);
           // 转换 OSS 格式 → 网页格式
           const convertedTeachers = cloudStaff.map((s: any) => ({
             id: s.id,
@@ -200,10 +206,19 @@ const StaffView: React.FC<StaffViewProps> = ({ currentUser }) => {
           setTeachers(merged);
           console.log(`[StaffView] 云端同步完成: 云端${convertedTeachers.length} + 本地新增${localOnly.length} = ${merged.length}条`);
         }
-      }).catch(err => {
-        console.log('[StaffView] 云端同步跳过:', err);
+      })
+      .catch(err => {
+        console.warn('[StaffView] 直接fetch失败，尝试SDK:', err.message);
+        // 降级：用 ali-oss SDK
+        if (isAliyunConfigured) {
+          downloadFromAliyun('kt_staff').then(cloudStaff => {
+            if (cloudStaff && cloudStaff.length > 0) {
+              localStorage.setItem('kt_staff', JSON.stringify(cloudStaff));
+              console.log(`[StaffView] SDK下载成功: ${cloudStaff.length}条`);
+            }
+          }).catch(() => {});
+        }
       });
-    }
     
     const savedSchedules = localStorage.getItem('kt_schedules');
     if (savedSchedules) setSchedules(JSON.parse(savedSchedules));

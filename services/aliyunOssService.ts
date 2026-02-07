@@ -229,26 +229,64 @@ export async function uploadToAliyun(storageKey: string, data: any[], forceUploa
   }
 
   // 小数据直接上传
+  const filePath = getFilePath(storageKey);
+  const content = JSON.stringify(data, null, 2);
+
+  // 优先方式：ali-oss SDK
   try {
     const client = getOssClient();
-    const filePath = getFilePath(storageKey);
-    const content = JSON.stringify(data, null, 2);
     const blob = new Blob([content], { type: 'application/json; charset=utf-8' });
     
     await client.put(filePath, blob, {
       headers: { 'Content-Type': 'application/json; charset=utf-8' },
     });
     
-    console.log(`[AliyunOSS] ✅ 上传成功: ${storageKey} (${data.length}条)`);
+    console.log(`[AliyunOSS] ✅ SDK上传成功: ${storageKey} (${data.length}条)`);
     return true;
-  } catch (error: any) {
-    console.error(`[AliyunOSS] ❌ 上传失败: ${storageKey}`, error.message);
+  } catch (sdkError: any) {
+    console.warn(`[AliyunOSS] SDK上传失败: ${storageKey}`, sdkError.message, '尝试fetch上传...');
+  }
+
+  // 降级方式：直接 fetch PUT（签名方式，浏览器中更可靠）
+  try {
+    const url = `https://${OSS_CONFIG.bucket}.${OSS_CONFIG.region}.aliyuncs.com/${filePath}`;
+    const date = new Date().toUTCString();
+    const contentType = 'application/json; charset=utf-8';
+    const stringToSign = `PUT\n\n${contentType}\n${date}\n/${OSS_CONFIG.bucket}/${filePath}`;
+    
+    // HMAC-SHA1 签名（使用 Web Crypto API）
+    const encoder = new TextEncoder();
+    const keyData = encoder.encode(OSS_CONFIG.accessKeySecret);
+    const msgData = encoder.encode(stringToSign);
+    const cryptoKey = await crypto.subtle.importKey('raw', keyData, { name: 'HMAC', hash: 'SHA-1' }, false, ['sign']);
+    const signature = await crypto.subtle.sign('HMAC', cryptoKey, msgData);
+    const base64Sig = btoa(String.fromCharCode(...new Uint8Array(signature)));
+    
+    const res = await fetch(url, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': contentType,
+        'Date': date,
+        'Authorization': `OSS ${OSS_CONFIG.accessKeyId}:${base64Sig}`,
+      },
+      body: content,
+    });
+    
+    if (res.ok) {
+      console.log(`[AliyunOSS] ✅ fetch上传成功: ${storageKey} (${data.length}条)`);
+      return true;
+    } else {
+      console.error(`[AliyunOSS] ❌ fetch上传失败: ${storageKey} HTTP ${res.status}`);
+      return false;
+    }
+  } catch (fetchError: any) {
+    console.error(`[AliyunOSS] ❌ 上传完全失败: ${storageKey}`, fetchError.message);
     return false;
   }
 }
 
 /**
- * 从阿里云 OSS 下载数据（自动判断是否分批）
+ * 从阿里云 OSS 下载数据（优先直接 fetch 公开 URL，更可靠）
  */
 export async function downloadFromAliyun<T>(storageKey: string): Promise<T[]> {
   if (!isAliyunConfigured) {
@@ -256,6 +294,22 @@ export async function downloadFromAliyun<T>(storageKey: string): Promise<T[]> {
     return [];
   }
 
+  // 优先方式：直接 fetch 公开 URL（不依赖 SDK，浏览器中更可靠）
+  try {
+    const publicUrl = `https://${OSS_CONFIG.bucket}.${OSS_CONFIG.region}.aliyuncs.com/${getFilePath(storageKey)}`;
+    const res = await fetch(publicUrl + '?t=' + Date.now());
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data) && data.length > 0) {
+        console.log(`[AliyunOSS] ✅ fetch下载成功: ${storageKey} (${data.length}条)`);
+        return data;
+      }
+    }
+  } catch (fetchErr: any) {
+    console.warn(`[AliyunOSS] fetch下载失败: ${storageKey}`, fetchErr.message);
+  }
+
+  // 降级方式：使用 ali-oss SDK
   try {
     // 先尝试下载分批数据
     const batchData = await downloadInBatches<T>(storageKey);
@@ -280,7 +334,7 @@ export async function downloadFromAliyun<T>(storageKey: string): Promise<T[]> {
     }
     
     const data = JSON.parse(content);
-    console.log(`[AliyunOSS] ✅ 下载成功: ${storageKey} (${data.length}条)`);
+    console.log(`[AliyunOSS] ✅ SDK下载成功: ${storageKey} (${data.length}条)`);
     return data;
   } catch (error: any) {
     if (error.code === 'NoSuchKey' || error.status === 404) {
