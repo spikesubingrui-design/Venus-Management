@@ -42,14 +42,14 @@ function syncTeachersToOssFormat(webTeachers: Teacher[]): void {
   saveAndSync('kt_staff', ossStaff);
   
   // 异步上传到云端（带安全检查）
-  if (isAliyunConfigured && ossStaff.length >= 20) {
-    uploadToAliyun('kt_staff', ossStaff).then(success => {
+  if (isAliyunConfigured && ossStaff.length >= 3) {
+    uploadToAliyun('kt_staff', ossStaff, true).then(success => {
       if (success) {
         console.log(`[StaffView] ✅ kt_staff 已同步到云端: ${ossStaff.length}条`);
       }
     });
-  } else if (ossStaff.length < 20) {
-    console.warn(`[StaffView] ⚠️ 教职工数据不足(${ossStaff.length}<20)，跳过云端上传`);
+  } else if (ossStaff.length < 3) {
+    console.warn(`[StaffView] ⚠️ 教职工数据不足(${ossStaff.length}<3)，跳过云端上传`);
   }
 }
 

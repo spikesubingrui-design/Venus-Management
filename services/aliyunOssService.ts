@@ -202,7 +202,7 @@ const PROTECTED_KEYS = [
 // 核心数据的最小记录数（低于此数量拒绝上传，防止少量数据覆盖完整数据）
 const MIN_RECORDS_FOR_UPLOAD: Record<string, number> = {
   'kt_students': 10,     // 学生数据至少10条（实际116条）
-  'kt_staff': 20,        // 教职工至少20条（实际38条）
+  'kt_staff': 3,         // 教职工至少3条（降低阈值，确保小型团队也能同步）
 };
 
 /**

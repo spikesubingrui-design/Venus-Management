@@ -227,7 +227,7 @@ function toSnakeCase(obj: any): any {
 // 受保护的核心数据键 - 自动同步时需要安全检查
 const PROTECTED_SYNC_KEYS: Record<string, number> = {
   'kt_students': 10,    // 学生数据至少10条
-  'kt_staff': 20,       // 教职工至少20条
+  'kt_staff': 3,        // 教职工至少3条（降低阈值，确保小型团队也能同步）
 };
 
 // 不需要同步到 OSS 的本地专用键
